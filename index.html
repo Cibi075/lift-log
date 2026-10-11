@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Lift Log">
 <meta name="theme-color" content="#0f1115">
 <link rel="manifest" href="manifest.json">
@@ -13,6 +13,8 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <title>Lift Log</title>
 <style>
+/* Status bar style is "black", not translucent: on iOS 26 home screen apps translucent makes the page shorter than
+   the screen by the status bar height, leaving a band under the bottom bar that cannot be drawn into. */
 :root {
   --bg: #0f1115;
   --card: #181b22;
@@ -27,7 +29,6 @@
   --warn: #fbbf24;
   --blue: #60a5fa;
   --safe-b: env(safe-area-inset-bottom);
-  --ios-gap: 0px;
 }
 * { box-sizing: border-box; }
 html { background: var(--bg); }
@@ -49,7 +50,7 @@ header h1 { font-size: 20px; margin: 0; flex: 1; white-space: nowrap; overflow: 
 #back { background: none; border: 0; color: var(--accent); font-size: 17px; padding: 4px 6px 4px 0; }
 main { max-width: 640px; margin: 0 auto; padding: 14px 16px calc(var(--safe-b) + 150px); }
 nav#tabs {
-  position: fixed; left: 0; right: 0; bottom: calc(0px - var(--ios-gap)); z-index: 10; display: flex;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex;
   background: rgba(15, 17, 21, .96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--line); padding-bottom: var(--safe-b);
 }
@@ -129,7 +130,7 @@ input[type=date] { min-height: 44px; -webkit-appearance: none; }
 
 #rest {
   position: fixed; left: 12px; right: 12px; z-index: 9;
-  bottom: calc(var(--safe-b) + 64px - var(--ios-gap));
+  bottom: calc(var(--safe-b) + 64px);
   max-width: 616px; margin: 0 auto;
   background: #1f2a22; border: 1px solid rgba(74, 222, 128, .35); border-radius: 16px;
   padding: 10px 12px; display: flex; align-items: center; gap: 8px;
@@ -316,7 +317,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 18;
+const APP_VERSION = 19;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -476,21 +477,17 @@ let ui = { tab: 'workout', progEx: null, metric: 'top', insGroup: null, region: 
 try { Object.assign(ui, JSON.parse(localStorage.getItem(UI_KEY) || '{}'), { editId: null }); } catch (e) {}
 if (S.activeId) ui.tab = 'workout';
 
-/* iOS 26 home screen apps can report a page shorter than the screen (by the status bar height), which leaves an
-   empty band under the bottom bar. Measure the missing height and pull the bar down to the real screen edge. */
+/* Screen measurements, shown in Settings to diagnose layout on a phone. */
 function screenInfo() {
   const probe = document.createElement('div');
   probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
   document.body.appendChild(probe);
   const cs = getComputedStyle(probe), top = parseFloat(cs.paddingTop) || 0, bottom = parseFloat(cs.paddingBottom) || 0;
   probe.remove();
-  return { sw: screen.width, sh: screen.height, w: window.innerWidth, h: window.innerHeight, top, bottom };
+  const bar = document.getElementById('tabs').getBoundingClientRect();
+  return { sw: screen.width, sh: screen.height, w: window.innerWidth, h: window.innerHeight, top, bottom, barBottom: Math.round(bar.bottom) };
 }
-function fixBottomGap() {
-  const s = screenInfo(), portrait = s.h > s.w;
-  const gap = standalone() && portrait ? Math.round(Math.max(s.sh, s.sw) - s.h) : 0;
-  document.documentElement.style.setProperty('--ios-gap', (gap > 0 && gap <= 100 ? gap : 0) + 'px');
-}
+
 
 function save() {
   memo.clear();
@@ -1759,7 +1756,7 @@ function settingsHTML() {
     <div class="card"><h3>Storage</h3><p class="muted" id="storageInfo">${S.workouts.length} workouts saved on this phone.</p></div>
     <button class="btn block danger" data-act="wipe">Erase all data</button>
     <p class="muted center small">Lift Log version ${APP_VERSION} · works offline · no account, no cloud</p>
-    <p class="muted center small" id="screenDiag">${(() => { const s = screenInfo(); return `screen ${s.sw}×${s.sh} · page ${s.w}×${s.h} · edges ${Math.round(s.top)}/${Math.round(s.bottom)} · lift ${getComputedStyle(document.documentElement).getPropertyValue('--ios-gap').trim()} · ${standalone() ? 'app' : 'browser'}`; })()}</p>`;
+    <p class="muted center small" id="screenDiag">${(() => { const s = screenInfo(); return `screen ${s.sw}×${s.sh} · page ${s.w}×${s.h} · edges ${Math.round(s.top)}/${Math.round(s.bottom)} · bar ends ${s.barBottom} · ${standalone() ? 'app' : 'browser'}`; })()}</p>`;
   return h;
 }
 
@@ -2184,10 +2181,6 @@ function syncHelp(why) {
   });
 }
 
-fixBottomGap();
-addEventListener('resize', fixBottomGap);
-addEventListener('orientationchange', () => setTimeout(fixBottomGap, 300));
-addEventListener('pageshow', fixBottomGap);
 render();
 importFromHash();
 addEventListener('hashchange', importFromHash);
