@@ -651,9 +651,15 @@ function startHTML() {
   const planned = plan.groups && plan.groups.length && plan.kind === 'go';
   h += `<button class="btn ${planned ? '' : 'primary'} block lg" data-act="start">${planned ? 'Start empty workout' : 'Start workout'}</button>`;
 
-  if (ws.length && S.checkinSkip !== today() && !S.recovery.some(r => r.date === today())) {
-    h += `<div class="card"><div class="row"><h3 class="grow">Check-in</h3><span class="muted small">from your ring</span></div>
-      <button class="btn primary block mt" data-act="pasteHealth">Import from ring</button>
+  const todayRing = S.recovery.find(r => r.date === today());
+  if (todayRing) {
+    const vals = RING_FIELDS.filter(f => num(todayRing[f[1]]) != null).map(f => `${f[5]} ${fmtNum(num(todayRing[f[1]]))}`).join(' · ');
+    const at = todayRing.synced ? new Date(todayRing.synced).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+    h += `<div class="card sync-ok"><div class="row"><span class="sig-i s-y">✓</span><b class="grow">${todayRing.via === 'manual' ? 'Check-in saved' : 'Ring synced'}${at ? ' at ' + at : ''}</b>
+      <button class="btn small" data-act="pasteHealth">Sync again</button></div><div class="muted small cl">${esc(vals)}</div></div>`;
+  } else if (ws.length && S.checkinSkip !== today()) {
+    h += `<div class="card"><div class="row"><h3 class="grow">Check-in</h3><span class="muted small">not synced today</span></div>
+      <button class="btn primary block mt" data-act="pasteHealth">Sync ring</button>
       <div class="grid3">
         <label class="fl">Recovery<input id="rcScore" inputmode="numeric" placeholder="0 to 100"></label>
         <label class="fl">Sleep score<input id="rcSleep" inputmode="numeric" placeholder="0 to 100"></label>
@@ -1692,7 +1698,7 @@ function settingsHTML() {
         <li><b>Text</b>: <code>liftlog:date=</code>Current Date (custom yyyy-MM-dd)<code>&amp;recovery=</code>Recovery<code>&amp;sleep=</code>Sleep score<code>&amp;hrv=</code>HRV<code>&amp;hr=</code>Heart rate<code>&amp;move=</code>Movement</li>
         <li><b>Copy to Clipboard</b></li>
         <li>Automation \u2192 Time of Day 7:00 \u2192 Run Immediately</li>
-        <li>Lift Log \u2192 Check-in \u2192 <b>Import from ring</b> \u2192 Paste</li>
+        <li>Lift Log \u2192 <b>Sync ring</b> \u2192 Paste. A green <b>Ring synced</b> card means it worked.</li>
       </ol></details>
     <div class="card"><h3>Goal</h3><p class="muted small">${S.goal ? `Since ${fmtDate(S.goal.date)}. You are asked again each month.` : 'Pick one so suggestions and insights match it.'}</p>
       ${Object.entries(GOALS).map(([k, g]) => `<button class="list-item${S.goal && S.goal.type === k ? ' accent' : ''}" data-act="setGoal" data-g="${k}"><b>${g.label}</b>${S.goal && S.goal.type === k ? ' ✓' : ''}<div class="muted small">${g.blurb}</div></button>`).join('')}</div>
@@ -2019,10 +2025,10 @@ $('#view').addEventListener('click', e => {
     }
     case 'pasteHealth':
       (async () => {
-        let text = '';
-        try { text = await navigator.clipboard.readText(); } catch (err) { text = ''; }
-        if (!/liftlog:/i.test(text)) text = prompt('Paste the text from the Lift Log Health shortcut') || '';
-        importHealth(text);
+        let text = '', blocked = false;
+        try { text = await navigator.clipboard.readText(); } catch (err) { blocked = true; }
+        const why = blocked ? 'Lift Log could not read the clipboard. Tap Paste when your iPhone asks, or paste the text below.' : healthProblem(text);
+        if (why) syncHelp(why); else importHealth(text);
       })();
       break;
     case 'saveCheckin': {
@@ -2032,7 +2038,7 @@ $('#view').addEventListener('click', e => {
       }
       if (Object.values(e).every(v => v == null)) { alert('Enter at least one number.'); break; }
       S.recovery = S.recovery.filter(r => r.date !== today());
-      S.recovery.push(Object.assign({ date: today() }, e));
+      S.recovery.push(Object.assign({ date: today(), synced: Date.now(), via: 'manual' }, e));
       save(); render(); toast('Check-in saved');
       break;
     }
@@ -2116,13 +2122,24 @@ function parseHealthText(text) {
   const d = (q.get('date') || '').trim(), parsed = d && !/^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d) : null;
   return { date: /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : parsed && !isNaN(parsed) ? isoDate(parsed) : today(), e };
 }
+/* Why a piece of text can't be synced, in plain words; empty when it can. */
+function healthProblem(text) {
+  const t = String(text || '').trim(), cut = n => t.length > n ? t.slice(0, n) + '…' : t;
+  if (!t) return 'The clipboard is empty. Run the Lift Log Health shortcut first, then tap Sync ring.';
+  if (!/liftlog:/i.test(t)) return `The clipboard has other text: "${cut(60)}". The shortcut needs a Text action that starts with liftlog:date= followed by Copy to Clipboard.`;
+  const p = parseHealthText(t);
+  if (!p || Object.values(p.e).every(v => v == null)) return `Found the Lift Log text but no numbers: "${cut(90)}". In the Text action, put each ring result right after its label (recovery=, sleep=, hrv=, hr=, move=).`;
+  if (p.date !== today()) return `This text is from ${fmtShort(p.date)}. Run the shortcut again today.`;
+  return '';
+}
 function importHealth(text) {
+  const why = healthProblem(text);
+  if (why) { toast('Sync failed'); return false; }
   const p = parseHealthText(text);
-  if (!p || Object.values(p.e).every(v => v == null)) { toast('No ring data found'); return false; }
-  if (p.date !== today()) { toast(`Data from ${fmtShort(p.date)}: run the shortcut again`); return false; }
   let r = S.recovery.find(x => x.date === p.date);
   if (!r) { r = { date: p.date }; S.recovery.push(r); }
   for (const k in p.e) if (p.e[k] != null) r[k] = p.e[k];
+  r.synced = Date.now(); r.via = 'ring';
   save(); render();
   toast('Imported · ' + RING_FIELDS.filter(f => p.e[f[1]] != null).map(f => `${f[5]} ${p.e[f[1]]}`).join(' · '));
   return true;
@@ -2132,7 +2149,19 @@ function importFromHash() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (!/^liftlog:/i.test(h)) return;
   history.replaceState(null, '', location.pathname + location.search);
-  importHealth(h);
+  const why = healthProblem(h);
+  if (why) syncHelp(why); else importHealth(h);
+}
+/* Shown when a sync fails: the reason, plus a box to paste the shortcut text by hand. */
+function syncHelp(why) {
+  openSheet(`<h2>Sync did not work</h2><p class="muted small" id="syncWhy">${esc(why)}</p>
+    <textarea id="pasteBox" rows="3" placeholder="Or paste the shortcut text here"></textarea>
+    <button class="btn primary block mt" data-s="import">Import</button>`, a => {
+    if (a !== 'import') return;
+    const t = $('#pasteBox').value, w = healthProblem(t);
+    if (w) { $('#syncWhy').textContent = w; return; }
+    closeSheet(); importHealth(t);
+  });
 }
 
 render();
