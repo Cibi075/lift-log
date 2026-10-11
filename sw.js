@@ -1,5 +1,5 @@
 /* Caches the app so it opens with no internet. Bump VERSION when the app files change. */
-const VERSION = 'liftlog-v15';
+const VERSION = 'liftlog-v16';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

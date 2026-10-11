@@ -314,6 +314,8 @@ details.fold[open] summary::after { content: '2'; }
 'use strict';
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
+/* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
+const APP_VERSION = 16;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -1739,7 +1741,7 @@ function settingsHTML() {
   h += `</div>
     <div class="card"><h3>Storage</h3><p class="muted" id="storageInfo">${S.workouts.length} workouts saved on this phone.</p></div>
     <button class="btn block danger" data-act="wipe">Erase all data</button>
-    <p class="muted center small">Lift Log · works offline · no account, no cloud</p>`;
+    <p class="muted center small">Lift Log version ${APP_VERSION} · works offline · no account, no cloud</p>`;
   return h;
 }
 
