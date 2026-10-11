@@ -239,7 +239,9 @@ i.d.high { background: var(--blue); }
 .kpis .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .tag { display: inline-block; font-size: 12px; color: var(--muted); background: var(--card2); border-radius: 6px; padding: 2px 8px; font-weight: 500; }
 .list-item .tag { float: right; }
-select.mini { width: auto; padding: 6px 8px; font-size: 14px; }
+select.mini { width: auto; padding: 8px 30px 8px 10px; font-size: 14px; background: var(--card2); color: var(--text); -webkit-appearance: none; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
 h4.month + .ex-row { border-top: 0; }
 
 .plan { margin-top: 10px; border-top: 1px solid var(--line); }
@@ -277,6 +279,22 @@ details.fold[open] summary::after { content: '2'; }
 .seg-sm { margin-top: 0; padding: 2px; }
 .seg-sm button { padding: 5px 12px; font-size: 13px; }
 .plan-d { width: 40px; color: var(--muted); font-weight: 600; }
+
+.plan-card.today { border: 1px solid rgba(74, 222, 128, .45); }
+.plan-card .tag { margin-left: 4px; color: var(--accent); }
+
+.one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-fold summary, .about summary { list-style: none; cursor: pointer; margin-top: 10px; }
+.ci-fold summary::-webkit-details-marker, .about summary::-webkit-details-marker { display: none; }
+.ci-fold summary { text-decoration: underline; }
+.about { margin: 6px 0 4px; }
+
+.pe-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pe-grid input, .pe-item .fl input { padding: 9px 8px; }
+.icon-btn[disabled] { opacity: .3; }
+.more summary { list-style: none; cursor: pointer; padding: 10px 0 2px; text-decoration: underline; }
+.more summary::-webkit-details-marker { display: none; }
+.plan-card .btn.small + .btn.small { margin-left: 6px; }
 
 #toast {
   position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 64px); transform: translateX(-50%) translateY(-20px);
@@ -321,7 +339,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 21;
+const APP_VERSION = 24;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -658,19 +676,16 @@ function startHTML() {
   let h = '';
   if (isIOS() && !standalone()) {
     h += `<div class="card" style="border:1px solid var(--accent)">
-      <h3>Install</h3><p class="muted small">Share \u2192 Add to Home Screen. Log only from that icon.</p></div>`;
+      <h3>Install</h3><p class="muted small">Share → Add to Home Screen. Log only from that icon.</p></div>`;
   }
   const ws = sortedWorkouts();
   const now = new Date();
   const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
   const week = ws.filter(w => dateOf(w.date) >= monday).length;
-  h += `<div class="card hero"><span class="big">${week}</span><span class="muted">workout${week === 1 ? '' : 's'} this week${ws.length ? ' · ' + ws.length + ' total' : ''}</span></div>`;
-  const A = analyze(), plan = coach(A);
+  if (ws.length) h += `<div class="card hero"><span class="big">${week}</span><span class="muted">workout${week === 1 ? '' : 's'} this week${ws.length ? ' · ' + ws.length + ' total' : ''}</span></div>`;
   if (goalDue()) h += goalPromptHTML();
-  if (ws.length || planOn()) h += coachHTML(plan, A);
-  const planned = plan.kind === 'go' && ((plan.groups && plan.groups.length) || plan.planDay != null);
-  h += `<button class="btn ${planned ? '' : 'primary'} block lg" data-act="start">${planned ? 'Start empty workout' : 'Start workout'}</button>`;
 
+  /* Morning ring sync first, so today's targets use your recovery. */
   const todayRing = S.recovery.find(r => r.date === today());
   if (todayRing) {
     const vals = RING_FIELDS.filter(f => num(todayRing[f[1]]) != null).map(f => `${f[5]} ${fmtNum(num(todayRing[f[1]]))}`).join(' · ');
@@ -682,6 +697,7 @@ function startHTML() {
   } else {
     h += `<div class="card"><div class="row"><h3 class="grow">Check-in</h3><span class="muted small">not synced today</span></div>
       <button class="btn primary block mt" data-act="pasteHealth">Sync ring</button>
+      <details class="ci-fold"><summary class="muted small">Type the numbers instead</summary>
       <div class="grid3">
         <label class="fl">Recovery<input id="rcScore" inputmode="numeric" placeholder="0 to 100"></label>
         <label class="fl">Sleep score<input id="rcSleep" inputmode="numeric" placeholder="0 to 100"></label>
@@ -689,8 +705,31 @@ function startHTML() {
         <label class="fl">Heart rate<input id="rcHr" inputmode="numeric" placeholder="bpm"></label>
         <label class="fl">Movement<input id="rcMove" inputmode="numeric" placeholder="0 to 100"></label>
       </div>
-      <div class="row mt"><button class="btn grow" data-act="saveCheckin">Save</button><button class="btn" data-act="skipCheckin">Not today</button></div></div>`;
+      <button class="btn block mt" data-act="saveCheckin">Save</button></details>
+      <button class="btn small mt" data-act="skipCheckin">Not today</button></div>`;
   }
+
+  /* Today's session with its targets. */
+  const A = analyze(), plan = coach(A);
+  if (ws.length || planOn()) h += coachHTML(plan, A);
+
+  /* Every session of the plan, ready to pick. */
+  if (planOn()) {
+    const tdow = todayDow();
+    const shown = plan.kind === 'go' && plan.planDay != null ? plan.planDay : null;
+    h += `<h4 class="month">${shown != null ? 'Other sessions' : 'Your plan'}</h4>`;
+    for (const d of [1, 2, 3, 4, 5, 6]) {
+      if (d === shown) continue;
+      const day = planDay(d), names = day.items.map(i => i[0]), isToday = d === tdow;
+      h += `<div class="card plan-card${isToday ? ' today' : ''}"><div class="row"><div class="grow"><b>${DAY_NAMES[d]} · ${esc(day.name)}</b>${isToday ? ' <span class="tag">today</span>' : ''}
+        <div class="muted small">${esc(day.focus)} · ${names.length} exercises</div></div>
+        <button class="btn small" data-act="editPlan" data-d="${d}">Edit</button><button class="btn small${isToday ? ' primary' : ''}" data-act="startPlan" data-d="${d}">Start</button></div>
+        <div class="muted small cl one-line">${esc(names.join(', '))}</div></div>`;
+    }
+  }
+  const planned = plan.kind === 'go' && ((plan.groups && plan.groups.length) || plan.planDay != null);
+  h += `<button class="btn ${planned || planOn() ? '' : 'primary'} block lg" data-act="start">${planOn() ? '+ New workout' : planned ? 'Start empty workout' : 'Start workout'}</button>`;
+
   const lastWeigh = S.body.filter(b => num(b.bw) != null).map(b => b.date).sort().pop();
   if (ws.length && Date.now() > (S.weighSnooze || 0) && (!lastWeigh || dayNum(today()) - dayNum(lastWeigh) >= 7)) {
     h += `<div class="card"><h3>Weigh-in</h3>
@@ -709,10 +748,10 @@ function startHTML() {
     const sig = w.items.map(i => i.exId).join(',');
     if (seen.has(sig)) continue;
     seen.add(sig); templates.push(w);
-    if (templates.length >= 5) break;
+    if (templates.length >= (planOn() ? 3 : 5)) break;
   }
-  if (templates.length) {
-    h += `<h4 class="month">Repeat</h4>`;
+  if (templates.length && !planOn()) {
+    h += `<h4 class="month">Repeat a past workout</h4>`;
     for (const w of templates) {
       h += `<button class="card" data-act="repeat" data-id="${w.id}">
         <div class="row"><strong>${fmtDate(w.date)}</strong><span class="spacer"></span><span class="muted">${w.items.length} exercise${w.items.length === 1 ? '' : 's'}</span></div>
@@ -742,7 +781,7 @@ function itemHTML(w, it) {
   let h = `<div class="card ex" data-item="${it.id}">
     <div class="row"><h3>${esc(exName(it.exId))}</h3><button class="icon-btn" data-act="itemMenu" aria-label="Exercise options">&middot;&middot;&middot;</button></div>`;
   if (prev) h += `<div class="muted small last">Last ${fmtShort(prev.w.date)}: ${prev.sets.map(fmtSet).join(', ')}</div>`;
-  if (it.target) h += `<div class="target">Today: ${it.sets.length} sets × ${esc(targetText(it.target))}</div>${chipsHTML(it.target.tags)}${it.target.cue ? `<div class="muted small">${esc(it.target.cue)}</div>` : ''}`;
+  if (it.target) h += `<div class="target">Today: ${it.sets.length} sets × ${esc(targetText(it.target))}</div>${chipsHTML(it.target.tags.filter(t => t !== 'first time'))}${it.target.cue ? `<div class="muted small">${esc(it.target.cue)}</div>` : ''}`;
   h += `<div class="set-head"><span>#</span><span>${unit()}</span><span>Reps</span><span></span><span></span></div>`;
   it.sets.forEach((s, i) => {
     const lp = prev ? (prev.sets[i] || prev.sets[prev.sets.length - 1]) : null;
@@ -774,7 +813,7 @@ function historyHTML() {
       <div class="row"><strong>${fmtDate(w.date)}</strong><span class="spacer"></span>
       ${live ? '<span class="pill accent">In progress</span>' : (w.end ? `<span class="muted">${fmtDur(w.end - w.start)}</span>` : '')}</div>
       <div class="muted">${esc(w.items.map(i => exName(i.exId)).join(', ') || 'No exercises')}</div>
-      <div class="muted small">${w.items.length} exercise${w.items.length === 1 ? '' : 's'} · ${sets} set${sets === 1 ? '' : 's'}${vol ? ' · ' + fmtBig(vol) + ' ' + unit() + ' volume' : ''}</div>
+      <div class="muted small">${w.items.length} exercise${w.items.length === 1 ? '' : 's'} · ${sets} set${sets === 1 ? '' : 's'}</div>
     </button>`;
   }
   return h;
@@ -1151,6 +1190,34 @@ const PPL = {
   0: null
 };
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+/* A plan day: your edited version if you changed it, otherwise the original. */
+const planDay = d => (S.plan && S.plan.days && Object.prototype.hasOwnProperty.call(S.plan.days, d)) ? S.plan.days[d] : PPL[d];
+function editablePlanDay(d) {
+  S.plan.days = S.plan.days || {};
+  if (!Object.prototype.hasOwnProperty.call(S.plan.days, d)) S.plan.days[d] = JSON.parse(JSON.stringify(PPL[d]));
+  return S.plan.days[d];
+}
+const PE_FIELDS = { sets: 1, lo: 2, hi: 3, rir: 4, cue: 5 };
+function planEditorHTML(d) {
+  const day = planDay(d);
+  let h = `<div class="card"><div class="grid2"><label class="fl">Name<input data-pe="name" value="${esc(day.name)}"></label>
+    <label class="fl">Focus<input data-pe="focus" value="${esc(day.focus)}"></label></div></div>`;
+  day.items.forEach(([name, sets, lo, hi, rir, cue], i) => {
+    h += `<div class="card pe-item" data-i="${i}"><div class="row"><b class="grow">${esc(name)}</b>
+      <button class="icon-btn" data-act="peUp" aria-label="Move up"${i ? '' : ' disabled'}>\u2191</button>
+      <button class="icon-btn" data-act="peDown" aria-label="Move down"${i < day.items.length - 1 ? '' : ' disabled'}>\u2193</button>
+      <button class="icon-btn" data-act="peDel" aria-label="Remove">\u00d7</button></div>
+      <div class="pe-grid"><label class="fl">Sets<input data-pe="sets" inputmode="numeric" value="${sets}"></label>
+      <label class="fl">Reps from<input data-pe="lo" inputmode="numeric" value="${lo}"></label>
+      <label class="fl">to<input data-pe="hi" inputmode="numeric" value="${hi}"></label>
+      <label class="fl">RIR<input data-pe="rir" value="${esc(rir)}"></label></div>
+      <label class="fl">Cue<input data-pe="cue" value="${esc(cue)}" placeholder="optional"></label></div>`;
+  });
+  if (!day.items.length) h += `<p class="muted center">No exercises in this session.</p>`;
+  h += `<button class="btn block" data-act="peAdd">+ Add exercise</button>`;
+  if (S.plan.days && Object.prototype.hasOwnProperty.call(S.plan.days, d)) h += `<button class="btn block danger mt" data-act="peReset">Reset to the original</button>`;
+  return h;
+}
 const DELOAD_EVERY = 7;
 
 function todayDow() { return new Date().getDay(); }
@@ -1171,7 +1238,7 @@ function ensureExercise(name) {
 }
 /* One plan session with targets from your history, using the plan's own rep range and sets. */
 function planSession(dow, A) {
-  const day = PPL[dow];
+  const day = planDay(dow);
   if (!day) return [];
   const R = readiness(), deload = isDeloadWeek();
   return day.items.map(([name, sets, lo, hi, rir, cue]) => {
@@ -1182,11 +1249,11 @@ function planSession(dow, A) {
   });
 }
 function coachPlan(A) {
-  const dow = todayDow(), day = PPL[dow], wk = planWeek(), deload = isDeloadWeek();
-  const head = `Week ${wk}${deload ? ': deload week, half the sets, stop 3 to 4 reps short' : ''}`;
+  const dow = todayDow(), day = planDay(dow), wk = planWeek(), deload = isDeloadWeek();
+  const head = deload ? 'Deload week: half the sets, stop 3 to 4 reps short.' : '';
   if (A.trainedToday) {
-    let n = (dow + 1) % 7; while (!PPL[n]) n = (n + 1) % 7;
-    return { kind: 'done', title: 'Done for today', lines: [`Next: ${PPL[n].name} on ${DAY_NAMES[n]}.`] };
+    let n = (dow + 1) % 7; while (!planDay(n)) n = (n + 1) % 7;
+    return { kind: 'done', title: 'Done for today', lines: [`Next: ${planDay(n).name} on ${DAY_NAMES[n]}.`] };
   }
   if (!day) return { kind: 'rest', title: 'Rest day', lines: ['Plan rest day. Go for a walk or stretch.'], other: true };
   const R = readiness();
@@ -1194,14 +1261,14 @@ function coachPlan(A) {
   const lines = [head];
   if (R && R.level === 'amber') lines.push(`Recovery is low (${R.reasons.join(', ')}): same weights, 1 set fewer.`);
   else if (R) lines.push('Recovery is good: try for a new best.');
-  return { kind: 'go', title: `${day.name} · ${day.focus}`, lines, planDay: dow, other: true };
+  return { kind: 'go', title: `${day.name} · ${day.focus}`, lines, planDay: dow, other: true, kicker: `Today · week ${wk}` };
 }
 function planCardHTML() {
   const on = planOn();
   let h = `<div class="card"><div class="row"><h3 class="grow">Plan</h3><div class="seg seg-sm">
     <button data-act="planToggle" data-on="1" class="${on ? 'on' : ''}">On</button><button data-act="planToggle" data-on="0" class="${on ? '' : 'on'}">Off</button></div></div>
     <p class="muted small">Push / Pull / Legs, 6 days${on ? ` · week ${planWeek()}${isDeloadWeek() ? ' (deload)' : ''} · deload every ${DELOAD_EVERY}th week` : ''}</p>`;
-  h += [1, 2, 3, 4, 5, 6, 0].map(d => `<div class="ex-row"><span class="plan-d">${DAY_NAMES[d]}</span><span class="grow">${PPL[d] ? esc(PPL[d].name) + ' <span class="muted small">' + esc(PPL[d].focus) + '</span>' : '<span class="muted">Rest</span>'}</span></div>`).join('');
+  h += [1, 2, 3, 4, 5, 6, 0].map(d => `<div class="ex-row"><span class="plan-d">${DAY_NAMES[d]}</span><span class="grow">${planDay(d) ? esc(planDay(d).name) + ' <span class="muted small">' + esc(planDay(d).focus) + '</span>' : '<span class="muted">Rest</span>'}</span>${planDay(d) ? `<button class="btn small" data-act="editPlan" data-d="${d}">Edit</button>` : ''}</div>`).join('');
   if (on) h += `<button class="btn small mt" data-act="planRestart">Restart at week 1</button>`;
   return h + '</div>';
 }
@@ -1367,16 +1434,17 @@ function chipsHTML(tags) {
 }
 
 function coachHTML(c, A) {
-  let h = `<div class="card coach ${c.kind}"><div class="coach-k">${c.kind === 'rest' ? 'Recovery' : 'Today'}</div><h2>${esc(c.title)}</h2>`;
+  let h = `<div class="card coach ${c.kind}"><div class="coach-k">${c.kicker || (c.kind === 'rest' ? 'Recovery' : 'Today')}</div><h2>${esc(c.title)}</h2>`;
   h += c.lines.filter(Boolean).map(l => `<div class="muted small cl">${esc(l)}</div>`).join('');
   const plan = c.planDay != null && A ? planSession(c.planDay, A) : c.kind === 'go' && c.groups && c.groups.length && A ? planWorkout(c.groups, A) : [];
   if (plan.length && c.kind === 'go') {
-    h += `<div class="plan">` + plan.map(it => `<div class="plan-row"><div class="grow"><div class="plan-n">${esc(exName(it.exId))}</div>${chipsHTML(it.target.tags)}</div><span class="plan-t">${it.sets.length} × ${esc(targetText(it.target))}</span></div>`).join('') + `</div>`;
+    if (plan.every(it => it.target.tags.includes('first time'))) h += `<div class="muted small cl">First time: pick a weight you can lift for these reps.</div>`;
+    h += `<div class="plan">` + plan.map(it => `<div class="plan-row"><div class="grow"><div class="plan-n">${esc(exName(it.exId))}</div>${chipsHTML(it.target.tags.filter(t => t !== 'first time' && !/^RIR/.test(t)))}</div><span class="plan-t">${it.sets.length} × ${esc(targetText(it.target))}</span></div>`).join('') + `</div>`;
   }
   const label = c.kind === 'rest' ? 'Train anyway' : 'Start';
-  if (c.planDay != null) h += `<button class="btn ${c.kind === 'rest' ? '' : 'primary'} block mt" data-act="startPlan" data-d="${c.planDay}">${c.kind === 'rest' ? 'Train anyway: ' + esc(PPL[c.planDay].name) : 'Start'}</button>`;
+  if (c.planDay != null && c.kind === 'go') h += `<button class="btn small mt" data-act="editPlan" data-d="${c.planDay}">Edit session</button>`;
+  if (c.planDay != null) h += `<button class="btn ${c.kind === 'rest' ? '' : 'primary'} block mt" data-act="startPlan" data-d="${c.planDay}">${c.kind === 'rest' ? 'Train anyway: ' + esc(planDay(c.planDay).name) : 'Start'}</button>`;
   else if (c.groups && c.groups.length) h += `<button class="btn ${c.kind === 'rest' ? '' : 'primary'} block mt" data-act="startSuggested" data-g="${esc(c.groups.join(','))}">${label}</button>`;
-  if (c.other) h += `<button class="btn small mt" data-act="pickPlanDay">Other day</button>`;
   return h + '</div>';
 }
 
@@ -1711,8 +1779,7 @@ function weekBarsSVG(weeks) {
 function insightsHTML() {
   const A = analyze();
   let h = goalDue() ? goalPromptHTML() : '';
-  h += coachHTML(coach(A));
-  if (S.goal && !goalDue()) h += goalProgressHTML(A);
+  if (S.goal && !goalDue()) h += A.enough ? goalProgressHTML(A) : `<div class="card"><div class="coach-k">Goal</div><h2 style="margin:2px 0 4px">${esc(G().label)}</h2><div class="muted small">Progress shows after your first week.</div></div>`;
   if (!A.dayList.length) return h + bodyHTML();
 
   h += `<div class="card"><h3>Where to focus</h3>`;
@@ -1838,19 +1905,17 @@ function settingsHTML() {
         <li>Automation \u2192 Time of Day 7:00 \u2192 Run Immediately</li>
         <li>Lift Log \u2192 <b>Sync ring</b> \u2192 Paste. A green <b>Ring synced</b> card means it worked.</li>
       </ol></details>
-    <div class="card"><h3>Goal</h3><p class="muted small">${S.goal ? `Since ${fmtDate(S.goal.date)}. You are asked again each month.` : 'Pick one so suggestions and insights match it.'}</p>
-      ${Object.entries(GOALS).map(([k, g]) => `<button class="list-item${S.goal && S.goal.type === k ? ' accent' : ''}" data-act="setGoal" data-g="${k}"><b>${g.label}</b>${S.goal && S.goal.type === k ? ' ✓' : ''}<div class="muted small">${g.blurb}</div></button>`).join('')}</div>
+    <div class="card"><div class="row"><h3 class="grow">Goal</h3>${S.goal ? `<span class="muted small">since ${fmtShort(S.goal.date)}</span>` : ''}</div>
+      ${Object.entries(GOALS).map(([k, g]) => `<button class="list-item${S.goal && S.goal.type === k ? ' accent' : ''}" data-act="setGoal" data-g="${k}">${g.label}${S.goal && S.goal.type === k ? ' ✓' : ''}</button>`).join('')}</div>
     <div class="card"><h3>Weight unit</h3><div class="seg">
       <button data-act="unit" data-u="kg" class="${u === 'kg' ? 'on' : ''}">kg</button>
       <button data-act="unit" data-u="lb" class="${u === 'lb' ? 'on' : ''}">lb</button></div></div>
-    <div class="card"><h3>Rest timer</h3><p class="muted">Starts when you tick a set as done.</p>
-      <select id="restSel">${rests.map(r => `<option value="${r}"${r === S.settings.rest ? ' selected' : ''}>${r ? fmtClock(r) + ' min' : 'Off'}</option>`).join('')}</select></div>
-    <div class="card"><h3>Backup</h3>
-      <p class="muted">Your data lives only on this phone. Export a backup now and then and save it to Files or iCloud Drive, so you can restore it if the app is ever deleted or you get a new phone.</p>
-      <p class="muted">Last backup: ${S.lastBackup ? fmtDate(isoDate(new Date(S.lastBackup))) : 'never'}</p>
-      <div class="row"><button class="btn grow" data-act="export">Export backup</button><button class="btn grow" data-act="import">Restore</button></div></div>
-    <div class="card"><div class="row"><h3 class="grow">Exercises</h3><button class="btn small" data-act="newEx">+ New</button></div>
-      <p class="muted small">The muscle group of each exercise drives the Insights tab.</p>`;
+    <div class="card"><div class="row"><h3 class="grow">Rest timer</h3>
+      <select id="restSel" class="mini">${rests.map(r => `<option value="${r}"${r === S.settings.rest ? ' selected' : ''}>${r ? fmtClock(r) + ' min' : 'Off'}</option>`).join('')}</select></div></div>
+    <div class="card"><div class="row"><h3 class="grow">Backup</h3><span class="muted small">last: ${S.lastBackup ? fmtShort(isoDate(new Date(S.lastBackup))) : 'never'}</span></div>
+      <div class="row mt"><button class="btn grow" data-act="export">Export</button><button class="btn grow" data-act="import">Restore</button></div></div>
+    <details class="card fold ex-fold"${ui.exOpen ? ' open' : ''}><summary><h3 class="grow">Exercises</h3><span class="muted small">${S.exercises.length}</span></summary>
+      <button class="btn small mt" data-act="newEx">+ New exercise</button>`;
   for (const g of GROUPS) {
     const exs = S.exercises.filter(e => e.group === g).sort((a, b) => a.name.localeCompare(b.name));
     if (!exs.length) continue;
@@ -1863,22 +1928,22 @@ function settingsHTML() {
         <button class="icon-btn" data-act="exMenu" aria-label="Exercise options">&middot;&middot;&middot;</button></div>`;
     }
   }
-  h += `</div>
+  h += `</details>
     <div class="card"><div class="row"><h3 class="grow">Body stats</h3><button class="btn small" data-act="logBody">+ Log</button></div>`;
-  const body = S.body.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
-  if (!body.length) h += `<p class="muted small">No entries yet.</p>`;
-  for (const b of body) {
+  const body = S.body.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+  body.forEach((b, i) => {
+    if (i === 3) h += `<details class="more"><summary class="muted small">Show ${body.length - 3} older</summary>`;
     const parts = [];
     if (num(b.bw) != null) parts.push(`${b.bw} ${u}`);
     for (const [k, l] of BODY_FIELDS) if (num(b[k]) != null) parts.push(`${l.toLowerCase()} ${b[k]} cm`);
     h += `<div class="ex-row"><span class="grow">${fmtDate(b.date)}<span class="muted small hits">${esc(parts.join(', '))}</span></span>
       <button class="x" data-act="delBody" data-id="${b.id}" aria-label="Delete entry">&times;</button></div>`;
-  }
+  });
+  if (body.length > 3) h += '</details>';
   h += `</div>
-    <div class="card"><h3>Storage</h3><p class="muted" id="storageInfo">${S.workouts.length} workouts saved on this phone.</p></div>
     <button class="btn block danger" data-act="wipe">Erase all data</button>
-    <p class="muted center small">Lift Log version ${APP_VERSION} · works offline · no account, no cloud</p>
-    <p class="muted center small" id="screenDiag">${(() => { const s = screenInfo(); return `screen ${s.sw}×${s.sh} · page ${s.w}×${s.h} · edges ${Math.round(s.top)}/${Math.round(s.bottom)} · bar ends ${s.barBottom} · ${standalone() ? 'app' : 'browser'}`; })()}</p>`;
+    <details class="about"><summary class="muted center small">Lift Log version ${APP_VERSION}</summary>
+    <p class="muted center small" id="screenDiag">${(() => { const s = screenInfo(); return `screen ${s.sw}×${s.sh} · page ${s.w}×${s.h} · edges ${Math.round(s.top)}/${Math.round(s.bottom)} · bar ends ${s.barBottom} · ${standalone() ? 'app' : 'browser'}`; })()}</p></details>`;
   return h;
 }
 
@@ -1893,7 +1958,8 @@ function render() {
   memo.clear();
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
   let title = 'Lift Log', back = false, html;
-  if (ui.tab === 'workout') {
+  if (ui.planEdit != null && planDay(ui.planEdit)) { title = 'Edit ' + planDay(ui.planEdit).name; back = true; html = planEditorHTML(ui.planEdit); }
+  else if (ui.tab === 'workout') {
     const w = active();
     if (w) { title = 'Workout'; html = editorHTML(w, true); } else html = startHTML();
   } else if (ui.tab === 'history') {
@@ -1918,7 +1984,7 @@ async function storageInfo() {
   } catch (e) {}
 }
 
-function go(tab) { ui.tab = tab; ui.editId = null; saveUi(); closeSheet(); render(); scrollTo(0, 0); }
+function go(tab) { ui.tab = tab; ui.editId = null; ui.planEdit = null; saveUi(); closeSheet(); render(); scrollTo(0, 0); }
 
 function newWorkout(items) {
   const w = { id: uid(), date: today(), start: Date.now(), end: null, note: '', items };
@@ -2009,7 +2075,7 @@ $('#importFile').addEventListener('change', async e => {
 
 /* Events */
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) go(b.dataset.tab); });
-$('#back').addEventListener('click', () => { ui.editId = null; render(); scrollTo(0, 0); });
+$('#back').addEventListener('click', () => { if (ui.planEdit != null) ui.planEdit = null; else ui.editId = null; render(); scrollTo(0, 0); });
 
 $('#view').addEventListener('input', e => {
   const t = e.target, w = currentW();
@@ -2021,6 +2087,29 @@ $('#view').addEventListener('input', e => {
   } else if (t.dataset.act === 'note') { w.note = t.value; save(); }
   else if (t.dataset.act === 'date' && t.value) { w.date = t.value; save(); }
 });
+
+/* Plan editor: every change is saved immediately. */
+$('#view').addEventListener('input', e => {
+  const t = e.target;
+  if (!t.dataset || !t.dataset.pe || ui.planEdit == null) return;
+  const day = editablePlanDay(ui.planEdit), f = t.dataset.pe;
+  if (f === 'name' || f === 'focus') { if (t.value.trim()) day[f] = t.value.trim(); save(); $('#title').textContent = 'Edit ' + day.name; return; }
+  const item = day.items[Number(t.closest('[data-i]').dataset.i)];
+  if (f === 'rir' || f === 'cue') { item[PE_FIELDS[f]] = t.value.trim(); save(); return; }
+  const n = parseInt(t.value, 10);
+  if (n >= 1 && n <= 100) { item[PE_FIELDS[f]] = n; save(); }
+});
+$('#view').addEventListener('change', e => {
+  const t = e.target;
+  if (!t.dataset || !t.dataset.pe || ui.planEdit == null || !['sets', 'lo', 'hi'].includes(t.dataset.pe)) return;
+  const item = editablePlanDay(ui.planEdit).items[Number(t.closest('[data-i]').dataset.i)];
+  item[1] = Math.max(1, Math.min(10, item[1]));
+  if (item[2] > item[3]) { if (t.dataset.pe === 'lo') item[3] = item[2]; else item[2] = item[3]; }
+  save(); render();
+});
+
+/* Remember an open Exercises list across redraws while you edit it. */
+$('#view').addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('ex-fold')) ui.exOpen = e.target.open; }, true);
 
 $('#view').addEventListener('change', e => {
   const t = e.target;
@@ -2149,14 +2238,35 @@ $('#view').addEventListener('click', e => {
     case 'import': $('#importFile').click(); break;
     case 'startPlan': {
       const items = planSession(Number(b.dataset.d), analyze());
-      save(); newWorkout(items); toast(PPL[Number(b.dataset.d)].name + ' loaded');
+      save(); newWorkout(items); toast(planDay(Number(b.dataset.d)).name + ' loaded');
       break;
     }
     case 'pickPlanDay':
-      openSheet('<h2>Which session?</h2>' + [1, 2, 3, 4, 5, 6].map(d => `<button class="list-item" data-s="${d}"><b>${DAY_NAMES[d]} · ${esc(PPL[d].name)}</b><div class="muted small">${esc(PPL[d].focus)}</div></button>`).join(''), a => {
+      openSheet('<h2>Which session?</h2>' + [1, 2, 3, 4, 5, 6].map(d => `<button class="list-item" data-s="${d}"><b>${DAY_NAMES[d]} · ${esc(planDay(d).name)}</b><div class="muted small">${esc(planDay(d).focus)}</div></button>`).join(''), a => {
         const d = Number(a); closeSheet();
-        const items = planSession(d, analyze()); save(); newWorkout(items); toast(PPL[d].name + ' loaded');
+        const items = planSession(d, analyze()); save(); newWorkout(items); toast(planDay(d).name + ' loaded');
       });
+      break;
+    case 'editPlan': ui.planEdit = Number(b.dataset.d); render(); scrollTo(0, 0); break;
+    case 'peUp': case 'peDown': {
+      const day = editablePlanDay(ui.planEdit), i = Number(b.closest('[data-i]').dataset.i), j = act === 'peUp' ? i - 1 : i + 1;
+      if (j >= 0 && j < day.items.length) { [day.items[i], day.items[j]] = [day.items[j], day.items[i]]; save(); render(); }
+      break;
+    }
+    case 'peDel': {
+      const day = editablePlanDay(ui.planEdit), i = Number(b.closest('[data-i]').dataset.i);
+      if (!confirm(`Remove ${day.items[i][0]} from ${day.name}?`)) break;
+      day.items.splice(i, 1); save(); render();
+      break;
+    }
+    case 'peAdd': {
+      const d = ui.planEdit;
+      pickExercise(id => { editablePlanDay(d).items.push([exName(id), 3, 8, 12, '1-2', '']); save(); render(); }, 'Add to ' + planDay(d).name);
+      break;
+    }
+    case 'peReset':
+      if (!confirm(`Reset ${planDay(ui.planEdit).name} to the original plan?`)) break;
+      delete S.plan.days[ui.planEdit]; save(); render(); toast('Session reset');
       break;
     case 'planToggle':
       S.plan = Object.assign(S.plan || { start: planStartDefault() }, { on: b.dataset.on === '1' });
