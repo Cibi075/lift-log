@@ -274,6 +274,10 @@ details.fold summary::-webkit-details-marker { display: none; }
 details.fold summary::after { content: '+'; color: var(--muted); font-weight: 700; }
 details.fold[open] summary::after { content: '2'; }
 
+.seg-sm { margin-top: 0; padding: 2px; }
+.seg-sm button { padding: 5px 12px; font-size: 13px; }
+.plan-d { width: 40px; color: var(--muted); font-weight: 600; }
+
 #toast {
   position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 64px); transform: translateX(-50%) translateY(-20px);
   background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: 14px;
@@ -317,7 +321,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 20;
+const APP_VERSION = 21;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -663,8 +667,8 @@ function startHTML() {
   h += `<div class="card hero"><span class="big">${week}</span><span class="muted">workout${week === 1 ? '' : 's'} this week${ws.length ? ' · ' + ws.length + ' total' : ''}</span></div>`;
   const A = analyze(), plan = coach(A);
   if (goalDue()) h += goalPromptHTML();
-  if (ws.length) h += coachHTML(plan, A);
-  const planned = plan.groups && plan.groups.length && plan.kind === 'go';
+  if (ws.length || planOn()) h += coachHTML(plan, A);
+  const planned = plan.kind === 'go' && ((plan.groups && plan.groups.length) || plan.planDay != null);
   h += `<button class="btn ${planned ? '' : 'primary'} block lg" data-act="start">${planned ? 'Start empty workout' : 'Start workout'}</button>`;
 
   const todayRing = S.recovery.find(r => r.date === today());
@@ -738,7 +742,7 @@ function itemHTML(w, it) {
   let h = `<div class="card ex" data-item="${it.id}">
     <div class="row"><h3>${esc(exName(it.exId))}</h3><button class="icon-btn" data-act="itemMenu" aria-label="Exercise options">&middot;&middot;&middot;</button></div>`;
   if (prev) h += `<div class="muted small last">Last ${fmtShort(prev.w.date)}: ${prev.sets.map(fmtSet).join(', ')}</div>`;
-  if (it.target) h += `<div class="target">Today: ${it.sets.length} sets × ${esc(targetText(it.target))}</div>${chipsHTML(it.target.tags)}`;
+  if (it.target) h += `<div class="target">Today: ${it.sets.length} sets × ${esc(targetText(it.target))}</div>${chipsHTML(it.target.tags)}${it.target.cue ? `<div class="muted small">${esc(it.target.cue)}</div>` : ''}`;
   h += `<div class="set-head"><span>#</span><span>${unit()}</span><span>Reps</span><span></span><span></span></div>`;
   it.sets.forEach((s, i) => {
     const lp = prev ? (prev.sets[i] || prev.sets[prev.sets.length - 1]) : null;
@@ -1095,8 +1099,116 @@ const GOAL_TEXT = {
   rest: { muscle: 'Go for a walk or stretch.', fat: 'Go for a 30 to 45 min walk.', recomp: 'Go for a 30 min walk.', strength: 'Light stretching only.' }
 }
 
+/* Training plan: Push / Pull / Legs, six days, from Cibi_Workout.pdf. Each item: exercise, sets, rep range low, high,
+   reps in reserve, short cue. Day keys are JavaScript weekdays (0 Sunday, 1 Monday). */
+const PPL = {
+  1: { name: 'Push A', focus: 'Chest', items: [
+    ['Incline Dumbbell Press', 4, 6, 10, '1-2', 'Main chest builder, earn every rep'],
+    ['Bench Press', 3, 8, 12, '1-2', 'Flat barbell or machine'],
+    ['Cable Fly', 3, 12, 15, '0-1', 'Stretch hard at the bottom'],
+    ['Seated Shoulder Press', 3, 8, 12, '1-2', ''],
+    ['Lateral Raise', 3, 12, 20, '0-1', 'Light and controlled, no swing'],
+    ['Tricep Pushdown', 3, 10, 15, '0-1', ''],
+    ['Overhead Triceps Extension', 2, 12, 15, '0-1', '']] },
+  2: { name: 'Pull A', focus: 'Back, vertical pull', items: [
+    ['Pull Up', 4, 6, 10, '1-2', 'Assisted as needed, drop the band over time'],
+    ['Lat Pulldown', 3, 10, 12, '1-2', 'Full stretch at the top'],
+    ['Chest Supported Row', 3, 10, 12, '1-2', 'Squeeze, do not yank'],
+    ['Straight-Arm Pulldown', 3, 12, 15, '0-1', ''],
+    ['Rear Delt Fly', 3, 15, 20, '0-1', ''],
+    ['Hammer Curl', 3, 8, 12, '0-1', ''],
+    ['Incline Dumbbell Curl', 2, 10, 15, '0-1', 'Biceps in full stretch']] },
+  3: { name: 'Legs A', focus: 'Quads', items: [
+    ['Squat', 4, 6, 10, '1-2', 'Add load patiently'],
+    ['Leg Press', 3, 10, 15, '1-2', ''],
+    ['Romanian Deadlift', 3, 8, 12, '1-2', 'Feel the hamstring stretch'],
+    ['Leg Extension', 3, 12, 20, '0-1', ''],
+    ['Seated Leg Curl', 3, 10, 15, '0-1', ''],
+    ['Standing Calf Raise', 4, 8, 15, '0-1', 'Pause at the bottom stretch']] },
+  4: { name: 'Push B', focus: 'Shoulders', items: [
+    ['Overhead Press', 4, 6, 10, '1-2', 'Builds the cap on your delts'],
+    ['Incline Dumbbell Press', 3, 8, 12, '1-2', 'Lighter than Push A, chest second hit'],
+    ['Lateral Raise', 4, 12, 20, '0-1', 'More volume here: side delts give width'],
+    ['Pec Deck', 3, 12, 15, '0-1', 'Or cable fly'],
+    ['Reverse Pec Deck', 3, 15, 20, '0-1', ''],
+    ['Dips', 3, 8, 12, '1-2', 'Or close grip press'],
+    ['Tricep Pushdown', 2, 12, 15, '0-1', '']] },
+  5: { name: 'Pull B', focus: 'Back, horizontal pull', items: [
+    ['Barbell Row', 4, 6, 10, '1-2', 'Controlled torso, do not heave'],
+    ['T-Bar Row', 3, 10, 12, '1-2', 'Or machine row'],
+    ['Neutral Grip Pulldown', 3, 10, 15, '1-2', 'Different grip than Pull A'],
+    ['Face Pull', 3, 15, 20, '0-1', 'Rear delts and healthy shoulders'],
+    ['Cable Curl', 3, 10, 15, '0-1', ''],
+    ['Preacher Curl', 2, 10, 15, '0-1', 'Biceps peak in flexion']] },
+  6: { name: 'Legs B', focus: 'Posterior chain', items: [
+    ['Deadlift', 3, 5, 8, '2', 'Heavy hinge, keep 2 in the tank, never grind'],
+    ['Hip Thrust', 3, 8, 12, '1-2', 'Drive through heels, full squeeze'],
+    ['Bulgarian Split Squat', 3, 8, 12, '1-2', 'Reps per leg'],
+    ['Seated Leg Curl', 3, 10, 15, '0-1', ''],
+    ['Leg Extension', 2, 15, 20, '0-1', ''],
+    ['Seated Calf Raise', 4, 12, 20, '0-1', ''],
+    ['Hanging Leg Raise', 3, 10, 15, '0-1', 'Abs']] },
+  0: null
+};
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DELOAD_EVERY = 7;
+
+function todayDow() { return new Date().getDay(); }
+const planOn = () => !!(S.plan && S.plan.on);
+/* Week 1 starts on the plan's start Monday. */
+function planWeek() { return Math.max(1, Math.floor((dayNum(today()) - dayNum(S.plan.start)) / 7) + 1); }
+const isDeloadWeek = () => planOn() && planWeek() % DELOAD_EVERY === 0;
+function planStartDefault() {
+  const d = dateOf(today());
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  return weekStart(isoDate(d));
+}
+/* The exercise with this name, added to your list (with its muscle group) if it is missing. */
+function ensureExercise(name) {
+  let e = S.exercises.find(x => x.name.toLowerCase() === name.toLowerCase());
+  if (!e) { e = { id: uid(), name, group: guessGroup(name) }; S.exercises.push(e); save(); }
+  return e;
+}
+/* One plan session with targets from your history, using the plan's own rep range and sets. */
+function planSession(dow, A) {
+  const day = PPL[dow];
+  if (!day) return [];
+  const R = readiness(), deload = isDeloadWeek();
+  return day.items.map(([name, sets, lo, hi, rir, cue]) => {
+    const e = ensureExercise(name);
+    const rx = prescribe(e, A, R, { sets, lo, hi, deload });
+    return { id: uid(), exId: e.id, target: { w: rx.w === '' ? '' : fmtNum(rx.w), r: String(rx.r), tags: rx.tags.concat(['RIR ' + (deload ? '3-4' : rir)]), cue },
+      sets: Array.from({ length: rx.sets }, () => ({ id: uid(), w: '', r: '', done: false })) };
+  });
+}
+function coachPlan(A) {
+  const dow = todayDow(), day = PPL[dow], wk = planWeek(), deload = isDeloadWeek();
+  const head = `Week ${wk}${deload ? ': deload week, half the sets, stop 3 to 4 reps short' : ''}`;
+  if (A.trainedToday) {
+    let n = (dow + 1) % 7; while (!PPL[n]) n = (n + 1) % 7;
+    return { kind: 'done', title: 'Done for today', lines: [`Next: ${PPL[n].name} on ${DAY_NAMES[n]}.`] };
+  }
+  if (!day) return { kind: 'rest', title: 'Rest day', lines: ['Plan rest day. Go for a walk or stretch.'], other: true };
+  const R = readiness();
+  if (R && R.level === 'red') return { kind: 'rest', title: 'Rest day', lines: [`Your body needs rest: ${R.reasons.join(', ')}.`, `Or run ${day.name} easier.`], planDay: dow, other: true };
+  const lines = [head];
+  if (R && R.level === 'amber') lines.push(`Recovery is low (${R.reasons.join(', ')}): same weights, 1 set fewer.`);
+  else if (R) lines.push('Recovery is good: try for a new best.');
+  return { kind: 'go', title: `${day.name} · ${day.focus}`, lines, planDay: dow, other: true };
+}
+function planCardHTML() {
+  const on = planOn();
+  let h = `<div class="card"><div class="row"><h3 class="grow">Plan</h3><div class="seg seg-sm">
+    <button data-act="planToggle" data-on="1" class="${on ? 'on' : ''}">On</button><button data-act="planToggle" data-on="0" class="${on ? '' : 'on'}">Off</button></div></div>
+    <p class="muted small">Push / Pull / Legs, 6 days${on ? ` · week ${planWeek()}${isDeloadWeek() ? ' (deload)' : ''} · deload every ${DELOAD_EVERY}th week` : ''}</p>`;
+  h += [1, 2, 3, 4, 5, 6, 0].map(d => `<div class="ex-row"><span class="plan-d">${DAY_NAMES[d]}</span><span class="grow">${PPL[d] ? esc(PPL[d].name) + ' <span class="muted small">' + esc(PPL[d].focus) + '</span>' : '<span class="muted">Rest</span>'}</span></div>`).join('');
+  if (on) h += `<button class="btn small mt" data-act="planRestart">Restart at week 1</button>`;
+  return h + '</div>';
+}
+
 function coach(A) {
   if (active()) return { kind: 'go', title: 'Workout in progress', lines: [] };
+  if (planOn()) return coachPlan(A);
   if (!A.dayList.length) return { kind: 'go', title: 'Log your first workout', lines: [] };
   const ready = GROUPS.filter(g => g !== 'Other' && (A.groupLast[g] == null || A.groupLast[g] >= 2));
   const why = g => {
@@ -1145,28 +1257,35 @@ function weightFor(e, last, r, inc) {
   return Math.max(0, Math.floor((last.e1rm / (1 + r / 30) - body) / inc) * inc);
 }
 
-function prescribe(e, A, R) {
+function prescribe(e, A, R, o) {
   const ss = sessionsFor(e.id), last = ss[ss.length - 1];
-  const big = COMPOUND.test(e.name), [lo, hi] = REP_RANGE[goalKey()][big ? 0 : 1];
+  const big = COMPOUND.test(e.name);
+  const [lo, hi] = o ? [o.lo, o.hi] : REP_RANGE[goalKey()][big ? 0 : 1];
   const kg = unit() === 'kg', db = /dumbbell|\bdb\b/i.test(e.name);
   const inc = db ? (kg ? 2 : 5) : big ? (kg ? 2.5 : 5) : (kg ? 1 : 2.5);
   const pm = primaryOf(musclesFor(e.id)), st = pm && A.ms[pm] ? A.ms[pm].status : 'ok';
   const easy = R && R.level !== 'green';
-  let sets = last ? last.sets.length : 3;
-  if (goalKey() !== 'fat' && (st === 'low' || st === 'none' || (pm && lagOf(A, pm) > 0 && st !== 'high'))) sets += 1;
-  if (st === 'high') sets -= 1;
+  let sets = o ? o.sets : (last ? last.sets.length : 3);
+  if (!o && goalKey() !== 'fat' && (st === 'low' || st === 'none' || (pm && lagOf(A, pm) > 0 && st !== 'high'))) sets += 1;
+  if (!o && st === 'high') sets -= 1;
   if (easy) sets -= 1;
-  sets = Math.max(2, Math.min(5, sets));
+  sets = o ? Math.max(1, sets) : Math.max(2, Math.min(5, sets));
+  if (o && o.deload) {
+    const half = Math.max(1, Math.ceil(o.sets / 2));
+    if (!last) return { sets: half, w: '', r: lo, tags: ['deload week'] };
+    return { sets: half, w: last.top || '', r: lo, tags: ['deload week'] };
+  }
   if (!last) return { sets, w: '', r: lo, tags: ['first time'] };
+  const base = o ? o.sets : last.sets.length;
   const topW = last.top, top = last.sets.filter(s => s.w === topW), minR = Math.min(...top.map(s => s.r));
-  const setTag = last.sets.length === sets ? [] : [sets > last.sets.length ? '+1 set' : '1 set fewer'];
-  if (!topW) return { sets, w: '', r: easy ? minR : minR + 1, tags: [easy ? 'same as last' : '+1 rep'].concat(setTag) };
+  const setTag = base === sets ? [] : [sets > base ? '+1 set' : '1 set fewer'];
+  if (!topW) return { sets, w: '', r: easy ? Math.min(minR, hi) : Math.min(minR + 1, hi), tags: [easy ? 'same as last' : '+1 rep'].concat(setTag) };
   if (A.sinceLast >= 7) return { sets, w: roundTo(topW * 0.9, inc), r: Math.min(minR, hi), tags: ['10% lighter'] };
-  if (easy) return { sets, w: topW, r: Math.min(minR, hi), tags: ['same as last'].concat(setTag) };
+  if (easy) return { sets, w: topW, r: Math.min(Math.max(minR, lo), hi), tags: ['same as last'].concat(setTag) };
   const prevMax = Math.max(...ss.slice(-6, -3).map(s => s.top));
   const recentDeload = ss.slice(-3).some(s => s.top < prevMax * 0.95);
   if (isStalled(e.id) && !recentDeload) {
-    return { sets: Math.min(sets, last.sets.length), w: roundTo(topW * 0.9, inc), r: Math.min(hi, Math.max(lo, minR)), tags: ['stuck: 10% lighter'] };
+    return { sets: Math.min(sets, base), w: roundTo(topW * 0.9, inc), r: Math.min(hi, Math.max(lo, minR)), tags: ['stuck: 10% lighter'] };
   }
   if (minR > hi) {
     const body = isBodyweightEx(e.name) ? (bodyweightAt(today()) || 0) : 0;
@@ -1250,13 +1369,14 @@ function chipsHTML(tags) {
 function coachHTML(c, A) {
   let h = `<div class="card coach ${c.kind}"><div class="coach-k">${c.kind === 'rest' ? 'Recovery' : 'Today'}</div><h2>${esc(c.title)}</h2>`;
   h += c.lines.filter(Boolean).map(l => `<div class="muted small cl">${esc(l)}</div>`).join('');
-  if (c.groups && c.groups.length) {
-    if (c.kind === 'go' && A) {
-      const plan = planWorkout(c.groups, A);
-      if (plan.length) h += `<div class="plan">` + plan.map(it => `<div class="plan-row"><div class="grow"><div class="plan-n">${esc(exName(it.exId))}</div>${chipsHTML(it.target.tags)}</div><span class="plan-t">${it.sets.length} × ${esc(targetText(it.target))}</span></div>`).join('') + `</div>`;
-    }
-    h += `<button class="btn ${c.kind === 'rest' ? '' : 'primary'} block mt" data-act="startSuggested" data-g="${esc(c.groups.join(','))}">${c.kind === 'rest' ? 'Train anyway' : 'Start'}</button>`;
+  const plan = c.planDay != null && A ? planSession(c.planDay, A) : c.kind === 'go' && c.groups && c.groups.length && A ? planWorkout(c.groups, A) : [];
+  if (plan.length && c.kind === 'go') {
+    h += `<div class="plan">` + plan.map(it => `<div class="plan-row"><div class="grow"><div class="plan-n">${esc(exName(it.exId))}</div>${chipsHTML(it.target.tags)}</div><span class="plan-t">${it.sets.length} × ${esc(targetText(it.target))}</span></div>`).join('') + `</div>`;
   }
+  const label = c.kind === 'rest' ? 'Train anyway' : 'Start';
+  if (c.planDay != null) h += `<button class="btn ${c.kind === 'rest' ? '' : 'primary'} block mt" data-act="startPlan" data-d="${c.planDay}">${c.kind === 'rest' ? 'Train anyway: ' + esc(PPL[c.planDay].name) : 'Start'}</button>`;
+  else if (c.groups && c.groups.length) h += `<button class="btn ${c.kind === 'rest' ? '' : 'primary'} block mt" data-act="startSuggested" data-g="${esc(c.groups.join(','))}">${label}</button>`;
+  if (c.other) h += `<button class="btn small mt" data-act="pickPlanDay">Other day</button>`;
   return h + '</div>';
 }
 
@@ -1709,7 +1829,7 @@ function saveBody(date, entry) {
 function settingsHTML() {
   const u = unit();
   const rests = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300];
-  let h = `<details class="card fold"><summary><h3 class="grow">Ring shortcut</h3><span class="muted small">set up once</span></summary>
+  let h = planCardHTML() + `<details class="card fold"><summary><h3 class="grow">Ring shortcut</h3><span class="muted small">set up once</span></summary>
       <ol class="steps small">
         <li>Shortcuts \u2192 + \u2192 name it <b>Lift Log Health</b></li>
         <li>Add the Ultrahuman actions: <b>recovery score</b>, <b>sleep score</b>, <b>HRV</b>, <b>heart rate</b>, <b>movement index</b>. Turn <b>Show When Run</b> off on each.</li>
@@ -2027,6 +2147,25 @@ $('#view').addEventListener('click', e => {
     }
     case 'export': exportData(); break;
     case 'import': $('#importFile').click(); break;
+    case 'startPlan': {
+      const items = planSession(Number(b.dataset.d), analyze());
+      save(); newWorkout(items); toast(PPL[Number(b.dataset.d)].name + ' loaded');
+      break;
+    }
+    case 'pickPlanDay':
+      openSheet('<h2>Which session?</h2>' + [1, 2, 3, 4, 5, 6].map(d => `<button class="list-item" data-s="${d}"><b>${DAY_NAMES[d]} · ${esc(PPL[d].name)}</b><div class="muted small">${esc(PPL[d].focus)}</div></button>`).join(''), a => {
+        const d = Number(a); closeSheet();
+        const items = planSession(d, analyze()); save(); newWorkout(items); toast(PPL[d].name + ' loaded');
+      });
+      break;
+    case 'planToggle':
+      S.plan = Object.assign(S.plan || { start: planStartDefault() }, { on: b.dataset.on === '1' });
+      save(); render(); toast(planOn() ? 'Plan on' : 'Plan off');
+      break;
+    case 'planRestart':
+      if (!confirm('Restart the plan at week 1 this week?')) break;
+      S.plan.start = weekStart(today()); save(); render(); toast('Plan restarted');
+      break;
     case 'startSuggested': {
       const items = planWorkout(b.dataset.g.split(','), analyze());
       newWorkout(items);
@@ -2183,6 +2322,7 @@ function syncHelp(why) {
   });
 }
 
+if (!S.plan) { S.plan = { on: true, start: planStartDefault() }; save(); }
 render();
 importFromHash();
 addEventListener('hashchange', importFromHash);
