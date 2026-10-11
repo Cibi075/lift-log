@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Lift Log">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#000000">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -16,17 +16,17 @@
 /* Status bar style is "black", not translucent: on iOS 26 home screen apps translucent makes the page shorter than
    the screen by the status bar height, leaving a band under the bottom bar that cannot be drawn into. */
 :root {
-  --bg: #0f1115;
-  --card: #181b22;
-  --card2: #22262f;
-  --line: #2c313c;
-  --text: #eef0f4;
-  --muted: #8b93a4;
-  --accent: #4ade80;
-  --accent-ink: #052e14;
-  --accent-soft: rgba(74, 222, 128, .14);
+  --bg: #000000;
+  --card: #121212;
+  --card2: #1d1d1d;
+  --line: #2a2a2a;
+  --text: #f2efe6;
+  --muted: #9a958a;
+  --accent: #d4af37;
+  --accent-ink: #1a1300;
+  --accent-soft: rgba(212, 175, 55, .14);
   --danger: #f87171;
-  --warn: #fbbf24;
+  --warn: #f97316;
   --blue: #60a5fa;
   --safe-b: env(safe-area-inset-bottom);
 }
@@ -42,7 +42,7 @@ button { touch-action: manipulation; cursor: pointer; }
 header {
   position: sticky; top: 0; z-index: 5;
   padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
-  background: rgba(15, 17, 21, .92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, .92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
   display: flex; align-items: center; gap: 10px; min-height: 52px;
 }
@@ -51,7 +51,7 @@ header h1 { font-size: 20px; margin: 0; flex: 1; white-space: nowrap; overflow: 
 main { max-width: 640px; margin: 0 auto; padding: 14px 16px calc(var(--safe-b) + 150px); }
 nav#tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex;
-  background: rgba(15, 17, 21, .96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, .96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--line); padding-bottom: var(--safe-b);
 }
 nav#tabs button {
@@ -91,10 +91,13 @@ input, select, textarea {
   font-size: 16px; background: var(--card2); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px 12px; width: 100%; outline: none;
 }
+select { -webkit-appearance: none; appearance: none; padding-right: 32px; background-color: var(--card2); color: var(--text);
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 55%, calc(100% - 12px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 textarea { resize: vertical; margin-top: 10px; min-height: 44px; }
 input[type=date] { min-height: 44px; -webkit-appearance: none; }
-::placeholder { color: #5d6474; }
+::placeholder { color: #6b665c; }
 
 .ex h3 { flex: 1; }
 .ex .last { margin: 4px 0 2px; }
@@ -104,7 +107,7 @@ input[type=date] { min-height: 44px; -webkit-appearance: none; }
 .set-row { margin-top: 8px; }
 .set-row .n { text-align: center; color: var(--muted); font-weight: 600; }
 .set-row input { text-align: center; padding: 11px 4px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.set-row.done input { background: var(--accent-soft); border-color: rgba(74, 222, 128, .35); }
+.set-row.done input { background: var(--accent-soft); border-color: rgba(212, 175, 55, .35); }
 .check { width: 46px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); color: var(--muted); font-size: 20px; font-weight: 700; }
 .set-row.done .check { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .x { background: none; border: 0; color: var(--muted); font-size: 22px; padding: 0; height: 44px; }
@@ -132,7 +135,7 @@ input[type=date] { min-height: 44px; -webkit-appearance: none; }
   position: fixed; left: 12px; right: 12px; z-index: 9;
   bottom: calc(var(--safe-b) + 64px);
   max-width: 616px; margin: 0 auto;
-  background: #1f2a22; border: 1px solid rgba(74, 222, 128, .35); border-radius: 16px;
+  background: #1c1708; border: 1px solid rgba(212, 175, 55, .35); border-radius: 16px;
   padding: 10px 12px; display: flex; align-items: center; gap: 8px;
   box-shadow: 0 8px 30px rgba(0,0,0,.5);
 }
@@ -158,7 +161,7 @@ input[type=date] { min-height: 44px; -webkit-appearance: none; }
 #pickList { margin-top: 8px; }
 
 .coach { border: 1px solid var(--line); }
-.coach.go, .coach.done { border-color: rgba(74, 222, 128, .45); background: linear-gradient(180deg, rgba(74, 222, 128, .11), var(--card) 75%); }
+.coach.go, .coach.done { border-color: rgba(212, 175, 55, .45); background: linear-gradient(180deg, rgba(212, 175, 55, .11), var(--card) 75%); }
 .coach.rest { border-color: rgba(96, 165, 250, .45); background: linear-gradient(180deg, rgba(96, 165, 250, .13), var(--card) 75%); }
 .coach h2 { margin: 2px 0 6px; }
 .coach p { margin: 4px 0; }
@@ -172,7 +175,7 @@ input[type=date] { min-height: 44px; -webkit-appearance: none; }
 .tip-info .dot { background: var(--blue); }
 .mg { display: grid; grid-template-columns: 76px 1fr 24px 62px; gap: 8px; align-items: center; padding: 7px 0; font-size: 14px; }
 .mg-track { position: relative; height: 12px; background: var(--card2); border-radius: 6px; overflow: hidden; }
-.mg-zone { position: absolute; top: 0; bottom: 0; background: rgba(74, 222, 128, .16); }
+.mg-zone { position: absolute; top: 0; bottom: 0; background: rgba(212, 175, 55, .16); }
 .mg-bar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: var(--accent); }
 .mg-bar.low, .mg-bar.none { background: var(--warn); }
 .mg-bar.high { background: var(--blue); }
@@ -193,20 +196,20 @@ i.d.high { background: var(--blue); }
 .legend i.d { width: 9px; height: 9px; margin-right: 5px; }
 .verdict { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 9px; white-space: nowrap; }
 .v-grow { background: var(--accent-soft); color: var(--accent); }
-.v-some { background: rgba(251, 191, 36, .14); color: var(--warn); }
+.v-some { background: rgba(249, 115, 22, .14); color: var(--warn); }
 .v-low { background: rgba(248, 113, 113, .14); color: var(--danger); }
 .v-early { background: var(--card2); color: var(--muted); }
 .chev { width: 14px; color: var(--muted); text-align: center; font-weight: 700; }
 .rg-body { background: var(--card2); border-radius: 0 0 10px 10px; padding: 4px 12px 12px; margin-bottom: 6px; }
 .sub { display: grid; grid-template-columns: 92px 1fr 30px 50px; gap: 8px; align-items: center; padding: 6px 0; font-size: 14px; }
 .sub .mg-track { background: var(--bg); }
-.sub .mg-zone { background: rgba(74, 222, 128, .28); }
+.sub .mg-zone { background: rgba(212, 175, 55, .28); }
 .sub-n { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 .sig-h { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 4px; font-weight: 700; }
 .sig { display: flex; gap: 10px; padding: 6px 0; font-size: 14px; }
 .sig-i { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
 .s-y { background: var(--accent-soft); color: var(--accent); }
-.s-p { background: rgba(251, 191, 36, .14); color: var(--warn); }
+.s-p { background: rgba(249, 115, 22, .14); color: var(--warn); }
 .s-n { background: rgba(248, 113, 113, .14); color: var(--danger); }
 .s-q { background: var(--bg); color: var(--muted); }
 .fix { color: var(--warn); margin-top: 2px; }
@@ -224,7 +227,7 @@ i.d.high { background: var(--blue); }
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
 .legend i.ready { background: var(--accent); }
 .legend i.rec { background: var(--warn); }
-.legend i.zone { background: rgba(74, 222, 128, .35); border-radius: 2px; }
+.legend i.zone { background: rgba(212, 175, 55, .35); border-radius: 2px; }
 .st-row { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; border-top: 1px solid var(--line); padding: 11px 8px; text-align: left; font-size: 15px; }
 .st-row.on { background: var(--card2); border-radius: 10px; border-top-color: transparent; }
 .st-row.on + .st-row { border-top-color: transparent; }
@@ -253,7 +256,7 @@ h4.month + .ex-row { border-top: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .chip { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--card2); color: var(--muted); white-space: nowrap; }
 .chip.up { color: var(--accent); background: var(--accent-soft); }
-.chip.warn { color: var(--warn); background: rgba(251, 191, 36, .12); }
+.chip.warn { color: var(--warn); background: rgba(249, 115, 22, .12); }
 .chip.star { color: var(--blue); background: rgba(96, 165, 250, .14); }
 .cl { margin-top: 3px; }
 .plan-row { align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
@@ -280,7 +283,7 @@ details.fold[open] summary::after { content: '2'; }
 .seg-sm button { padding: 5px 12px; font-size: 13px; }
 .plan-d { width: 40px; color: var(--muted); font-weight: 600; }
 
-.plan-card.today { border: 1px solid rgba(74, 222, 128, .45); }
+.plan-card.today { border: 1px solid rgba(212, 175, 55, .45); }
 .plan-card .tag { margin-left: 4px; color: var(--accent); }
 
 .one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -295,6 +298,9 @@ details.fold[open] summary::after { content: '2'; }
 .more summary { list-style: none; cursor: pointer; padding: 10px 0 2px; text-decoration: underline; }
 .more summary::-webkit-details-marker { display: none; }
 .plan-card .btn.small + .btn.small { margin-left: 6px; }
+
+.live-head { justify-content: flex-end; gap: 8px; margin: 0 2px 10px; }
+.kpis.kpi2 { grid-template-columns: repeat(2, 1fr); }
 
 #toast {
   position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 64px); transform: translateX(-50%) translateY(-20px);
@@ -339,7 +345,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 24;
+const APP_VERSION = 27;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -682,7 +688,6 @@ function startHTML() {
   const now = new Date();
   const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
   const week = ws.filter(w => dateOf(w.date) >= monday).length;
-  if (ws.length) h += `<div class="card hero"><span class="big">${week}</span><span class="muted">workout${week === 1 ? '' : 's'} this week${ws.length ? ' · ' + ws.length + ' total' : ''}</span></div>`;
   if (goalDue()) h += goalPromptHTML();
 
   /* Morning ring sync first, so today's targets use your recovery. */
@@ -762,9 +767,10 @@ function startHTML() {
 }
 
 function editorHTML(w, isActive) {
-  let h = `<div class="card"><div class="row">
+  let h = isActive ? `<div class="row live-head"><span class="pill accent" id="elapsed"></span></div>`
+    : `<div class="card"><div class="row">
       <input type="date" class="grow" data-act="date" value="${esc(w.date)}">
-      ${isActive ? '<span class="pill accent" id="elapsed"></span>' : (w.end ? `<span class="pill">${fmtDur(w.end - w.start)}</span>` : '')}
+      ${w.end ? `<span class="pill">${fmtDur(w.end - w.start)}</span>` : ''}
     </div>
     <textarea data-act="note" rows="1" placeholder="Notes (optional)">${esc(w.note || '')}</textarea></div>`;
   if (!w.items.length) h += `<p class="muted center">No exercises yet</p>`;
@@ -780,8 +786,7 @@ function itemHTML(w, it) {
   const prev = previousSets(it.exId, w);
   let h = `<div class="card ex" data-item="${it.id}">
     <div class="row"><h3>${esc(exName(it.exId))}</h3><button class="icon-btn" data-act="itemMenu" aria-label="Exercise options">&middot;&middot;&middot;</button></div>`;
-  if (prev) h += `<div class="muted small last">Last ${fmtShort(prev.w.date)}: ${prev.sets.map(fmtSet).join(', ')}</div>`;
-  if (it.target) h += `<div class="target">Today: ${it.sets.length} sets × ${esc(targetText(it.target))}</div>${chipsHTML(it.target.tags.filter(t => t !== 'first time'))}${it.target.cue ? `<div class="muted small">${esc(it.target.cue)}</div>` : ''}`;
+  if (prev) h += `<div class="muted small last">Last time: ${prev.sets.map(fmtSet).join(', ')}</div>`;
   h += `<div class="set-head"><span>#</span><span>${unit()}</span><span>Reps</span><span></span><span></span></div>`;
   it.sets.forEach((s, i) => {
     const lp = prev ? (prev.sets[i] || prev.sets[prev.sets.length - 1]) : null;
@@ -870,16 +875,16 @@ function chartSVG(pts, opts) {
   let g = '';
   for (const v of ticks) {
     const y = Y(v).toFixed(1);
-    g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="#2c313c" stroke-width="1"/>
+    g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="#2a2a2a" stroke-width="1"/>
       <text x="${L - 6}" y="${+y + 4}" text-anchor="end">${fmt(v)}</text>`;
   }
   const d = pts.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ' ' + Y(p.y).toFixed(1)).join(' ');
   const area = d + ` L${X(pts[pts.length - 1].x).toFixed(1)} ${H - B} L${X(pts[0].x).toFixed(1)} ${H - B} Z`;
-  const dots = pts.map(p => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5" fill="#4ade80"/>`).join('');
+  const dots = pts.map(p => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5" fill="#d4af37"/>`).join('');
   return `<svg class="chart" viewBox="0 0 ${W} ${H}">
-    <defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4ade80" stop-opacity=".28"/><stop offset="1" stop-color="#4ade80" stop-opacity="0"/></linearGradient></defs>
+    <defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d4af37" stop-opacity=".28"/><stop offset="1" stop-color="#d4af37" stop-opacity="0"/></linearGradient></defs>
     ${g}<path d="${area}" fill="url(#fill)"/>
-    <path d="${d}" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${dots}
+    <path d="${d}" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${dots}
     <text x="${L}" y="${H - 6}">${esc(fmtShort(pts[0].date))}</text>
     <text x="${W - R}" y="${H - 6}" text-anchor="end">${esc(fmtShort(pts[pts.length - 1].date))}</text>
   </svg>`;
@@ -890,7 +895,7 @@ function progressHTML() {
   if (!withData.length) return '<p class="muted center">Log some sets and your progress shows up here.</p>';
   if (!withData.some(e => e.id === ui.progEx)) ui.progEx = withData[0].id;
   const ss = sessionsFor(ui.progEx);
-  const metrics = { top: 'Weight', e1rm: 'Est. 1RM', reps: 'Reps' };
+  const metrics = { top: 'Weight', e1rm: 'Est. max', reps: 'Reps' };
   if (!metrics[ui.metric]) ui.metric = 'top';
   const u = unit();
   const pts = ss.map(s => ({ x: s.x, y: s[ui.metric], date: s.date }));
@@ -903,13 +908,13 @@ function progressHTML() {
   h += `<div class="card mt"><span class="tag">${esc(groupOf(ui.progEx))}</span><div class="seg">${Object.entries(metrics).map(([k, v]) => `<button data-act="metric" data-m="${k}" class="${k === ui.metric ? 'on' : ''}">${v}</button>`).join('')}</div>${chartSVG(pts)}</div>`;
   h += `<div class="stats">
     <div class="stat"><div class="k">Heaviest</div><div class="v">${bTop.top ? fmtNum(bTop.top) + ' ' + u : 'Bodyweight'}</div><div class="muted small">${topSet ? fmtNum(topSet.r) + ' reps · ' + fmtShort(bTop.date) : ''}</div></div>
-    <div class="stat"><div class="k">Best est. 1RM</div><div class="v">${bE.e1rm ? fmtNum(Math.round(bE.e1rm * 10) / 10) + ' ' + u : '·'}</div><div class="muted small">${bE.e1rm ? fmtShort(bE.date) : ''}</div></div>
+    <div class="stat"><div class="k">Best est. max</div><div class="v">${bE.e1rm ? fmtNum(Math.round(bE.e1rm * 10) / 10) + ' ' + u : '·'}</div><div class="muted small">${bE.e1rm ? fmtShort(bE.date) : ''}</div></div>
     <div class="stat"><div class="k">Trend</div><div class="v st ${trs}">${tr ? fmtPct(tr.pct) : '·'}</div><div class="muted small">${TREND_LABEL[trs]}</div></div>
     <div class="stat"><div class="k">Sessions</div><div class="v">${ss.length}</div><div class="muted small">since ${fmtShort(ss[0].date)}</div></div>
   </div>`;
   h += `<div class="card"><h3>History</h3>`;
   for (const s of ss.slice().reverse()) {
-    h += `<div class="sess"><div class="row"><strong>${fmtDate(s.date)}</strong><span class="spacer"></span><span class="muted small">${s.e1rm ? 'e1RM ' + fmtNum(Math.round(s.e1rm * 10) / 10) : ''}</span></div>
+    h += `<div class="sess"><div class="row"><strong>${fmtDate(s.date)}</strong><span class="spacer"></span></div>
       <div class="muted">${s.sets.map(fmtSet).join(', ')}</div></div>`;
   }
   return h + '</div>';
@@ -1439,7 +1444,7 @@ function coachHTML(c, A) {
   const plan = c.planDay != null && A ? planSession(c.planDay, A) : c.kind === 'go' && c.groups && c.groups.length && A ? planWorkout(c.groups, A) : [];
   if (plan.length && c.kind === 'go') {
     if (plan.every(it => it.target.tags.includes('first time'))) h += `<div class="muted small cl">First time: pick a weight you can lift for these reps.</div>`;
-    h += `<div class="plan">` + plan.map(it => `<div class="plan-row"><div class="grow"><div class="plan-n">${esc(exName(it.exId))}</div>${chipsHTML(it.target.tags.filter(t => t !== 'first time' && !/^RIR/.test(t)))}</div><span class="plan-t">${it.sets.length} × ${esc(targetText(it.target))}</span></div>`).join('') + `</div>`;
+    h += `<div class="plan">` + plan.map(it => `<div class="plan-row"><div class="grow"><div class="plan-n">${esc(exName(it.exId))}</div></div><span class="plan-t">${it.sets.length} × ${esc(targetText(it.target))}</span></div>`).join('') + `</div>`;
   }
   const label = c.kind === 'rest' ? 'Train anyway' : 'Start';
   if (c.planDay != null && c.kind === 'go') h += `<button class="btn small mt" data-act="editPlan" data-d="${c.planDay}">Edit session</button>`;
@@ -1459,7 +1464,7 @@ function focusAreas(A) {
   }
   for (const m in MUSCLES) {
     const lag = lagOf(A, m);
-    if (MUSCLES[m].w && lag > 0) add(m, lag * MUSCLES[m].w, `improving slower (${pctWord(A.ms[m].trend)} vs ${pctWord(A.avgTrend)} average)`);
+    if (MUSCLES[m].w && lag > 0) add(m, lag * MUSCLES[m].w, 'strength lagging');
   }
   const p = m => A.ms[m].primWeekly;
   const push = p('upperChest') + p('midChest') + p('lowerChest') + p('frontDelts');
@@ -1495,7 +1500,7 @@ function regionCheck(A, region, muscles) {
   } else {
     const lagging = main.filter(m => lagOf(A, m) > 0);
     sig.push({ k: 'Getting stronger', ok: !t ? 'q' : t.pct >= 1.5 && !lagging.length ? 'y' : t.pct > -3 ? 'p' : 'n', txt: t ? pctWord(t.pct) : 'not enough data',
-      fix: lagging.length ? lagging.map(m => MUSCLES[m].label.toLowerCase()).join(', ') + ' improving slower' : t && t.pct < 1.5 ? 'beat last time' : '' });
+      fix: lagging.length ? 'add a rep or a little weight on ' + lagging.map(m => MUSCLES[m].label.toLowerCase()).join(', ') + ' lifts' : t && t.pct < 1.5 ? 'beat last time' : '' });
   }
   const freq = Math.max(0, ...main.map(m => A.ms[m].freq));
   sig.push({ k: 'Trained often', ok: freq >= 1.75 ? 'y' : freq >= 0.9 ? 'p' : 'n',
@@ -1610,15 +1615,6 @@ function timingHTML() {
   if (T.trans > 300) tips.push({ t: 'info', text: 'Set up the next exercise while resting' });
   if (!tips.length && T.compN + T.isoN >= 4) tips.push({ t: 'good', text: 'Your rest times are right' });
   h += tips.map(t => `<div class="tip tip-${t.t}"><span class="dot"></span><span>${esc(t.text)}</span></div>`).join('');
-  const rows = exercisesByRecent().filter(e => T.perEx[e.id]).slice(0, 6);
-  if (rows.length) {
-    h += `<div class="sig-h">Average rest</div>`;
-    for (const e of rows) {
-      const v = mean(T.perEx[e.id]), r = COMPOUND.test(e.name) ? R.big : R.iso;
-      const st = v < r[0] * 0.75 ? 'too short' : v > r[1] * 1.25 ? 'too long' : 'good';
-      h += `<div class="ex-row"><span class="grow">${esc(e.name)}</span><span class="st ${st === 'good' ? 'up' : 'flat'}">${fmtClock(v)}</span><span class="muted small st-s">${st}</span></div>`;
-    }
-  }
   return h + '</div>';
 }
 
@@ -1768,8 +1764,8 @@ function weekBarsSVG(weeks) {
   weeks.forEach((w, i) => {
     const x = L + i * slot + (slot - bw) / 2, cx = (x + bw / 2).toFixed(1);
     const bh = w.n / max * (H - T - B), y = H - B - bh;
-    h += `<rect x="${x.toFixed(1)}" y="${H - B - 3}" width="${bw.toFixed(1)}" height="3" rx="1.5" fill="#2c313c"/>`;
-    if (w.n) h += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${i === weeks.length - 1 ? '#4ade80' : '#2f8f57'}"/>
+    h += `<rect x="${x.toFixed(1)}" y="${H - B - 3}" width="${bw.toFixed(1)}" height="3" rx="1.5" fill="#2a2a2a"/>`;
+    if (w.n) h += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${i === weeks.length - 1 ? '#d4af37' : '#8a6d1f'}"/>
       <text x="${cx}" y="${(y - 5).toFixed(1)}" text-anchor="middle">${w.n}</text>`;
     if ((weeks.length - 1 - i) % 3 === 0) h += `<text x="${cx}" y="${H - 6}" text-anchor="middle">${esc(fmtShort(w.date))}</text>`;
   });
@@ -1810,7 +1806,9 @@ function insightsHTML() {
         <div class="mg-track"><div class="mg-zone" style="left:${(r.lo / max * 100).toFixed(1)}%;width:${((X.hi - r.lo) / max * 100).toFixed(1)}%"></div><div class="mg-bar ${r.status}" style="width:${(r.weekly / max * 100).toFixed(1)}%"></div></div>
         <span class="sub-n">${fmt1(r.weekly)}</span><span class="mg-rec ${r.last == null ? '' : r.last <= 1 ? 'rec' : 'ready'}">${agoText(r.last)}</span></div>`;
     }
-    h += `<div class="sig-h">${CHECK[goalKey()].title}</div>` + H.sig.map(s => `<div class="sig"><span class="sig-i s-${s.ok}">${SIG_ICON[s.ok]}</span>
+    const todo = H.sig.filter(s => s.ok === 'p' || s.ok === 'n');
+    h += todo.length ? '' : `<div class="muted small mt">${H.verdict === 'early' ? 'Needs about a week of data.' : 'Nothing to fix here.'}</div>`;
+    h += (todo.length ? `<div class="sig-h">To improve</div>` : '') + todo.map(s => `<div class="sig"><span class="sig-i s-${s.ok}">${SIG_ICON[s.ok]}</span>
       <div class="grow"><div class="row"><span class="grow">${esc(s.k)}</span><b class="small">${esc(s.txt)}</b></div>${s.fix ? `<div class="small fix">Fix: ${esc(s.fix)}</div>` : ''}</div></div>`).join('');
     h += '</div>';
   }
@@ -1823,7 +1821,7 @@ function insightsHTML() {
     for (const r of regions) {
       const t = A.trends[r], st = t ? trendStatus(t.pct) : 'na';
       h += `<button class="st-row${r === ui.insGroup ? ' on' : ''}" data-act="insGroup" data-g="${r}">
-        <span class="grow">${r}</span><span class="st ${st}">${TREND_ARROW[st]} ${t ? pctWord(t.pct) : ''}</span><span class="muted small st-l">${TREND_LABEL[st]}</span></button>`;
+        <span class="grow">${r}</span><span class="st ${st}">${t ? TREND_ARROW[st] + ' ' + pctWord(t.pct).replace(/^(up|down) /, '') : 'not enough data'}</span></button>`;
     }
     h += `</div><div class="muted small mt">${ui.insGroup} strength since you started</div>` +
       chartSVG(regionSeries(ui.insGroup), { zero: true, fmt: v => (v > 0 ? '+' : '') + fmtNum(v) + '%', empty: 'Needs 2+ weeks' }) + '</div>';
@@ -1840,10 +1838,9 @@ function insightsHTML() {
   for (const w of weeks) w.n = byWeek[w.date] ? byWeek[w.date].size : 0;
   const firstIdx = Math.max(0, weeks.findIndex(w => w.n > 0));
   const avg = weeks.slice(firstIdx).reduce((a, w) => a + w.n, 0) / (weeks.length - firstIdx);
-  h += `<div class="card"><h3>Consistency</h3><div class="kpis">
+  h += `<div class="card"><h3>Consistency</h3><div class="kpis kpi2">
       <div><div class="v">${weeks[weeks.length - 1].n}</div><div class="k">This week</div></div>
       <div><div class="v">${avg.toFixed(1)}</div><div class="k">Avg / week</div></div>
-      <div><div class="v">${A.dayList.length}</div><div class="k">Total days</div></div>
     </div>${weekBarsSVG(weeks)}</div>`;
   return h;
 }
@@ -1896,7 +1893,7 @@ function saveBody(date, entry) {
 function settingsHTML() {
   const u = unit();
   const rests = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300];
-  let h = planCardHTML() + `<details class="card fold"><summary><h3 class="grow">Ring shortcut</h3><span class="muted small">set up once</span></summary>
+  let h = `<details class="card fold"><summary><h3 class="grow">Ring shortcut</h3><span class="muted small">set up once</span></summary>
       <ol class="steps small">
         <li>Shortcuts \u2192 + \u2192 name it <b>Lift Log Health</b></li>
         <li>Add the Ultrahuman actions: <b>recovery score</b>, <b>sleep score</b>, <b>HRV</b>, <b>heart rate</b>, <b>movement index</b>. Turn <b>Show When Run</b> off on each.</li>
