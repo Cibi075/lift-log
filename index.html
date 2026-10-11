@@ -317,7 +317,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 19;
+const APP_VERSION = 20;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -673,7 +673,9 @@ function startHTML() {
     const at = todayRing.synced ? new Date(todayRing.synced).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
     h += `<div class="card sync-ok"><div class="row"><span class="sig-i s-y">✓</span><b class="grow">${todayRing.via === 'manual' ? 'Check-in saved' : 'Ring synced'}${at ? ' at ' + at : ''}</b>
       <button class="btn small" data-act="pasteHealth">Sync again</button></div><div class="muted small cl">${esc(vals)}</div></div>`;
-  } else if (ws.length && S.checkinSkip !== today()) {
+  } else if (S.checkinSkip === today()) {
+    h += `<div class="card"><div class="row"><span class="grow muted">Check-in skipped today</span><button class="btn small" data-act="pasteHealth">Sync ring</button></div></div>`;
+  } else {
     h += `<div class="card"><div class="row"><h3 class="grow">Check-in</h3><span class="muted small">not synced today</span></div>
       <button class="btn primary block mt" data-act="pasteHealth">Sync ring</button>
       <div class="grid3">
