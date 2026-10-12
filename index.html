@@ -346,7 +346,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 32;
+const APP_VERSION = 33;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -1244,17 +1244,24 @@ function planEditorHTML(d) {
   return h;
 }
 /* A finished plan session becomes that session's list: next time it starts with the exercises you did, in your order.
-   Exercises that were already in the session keep their sets and rep range; new ones take the sets you did. */
+   Exercises that were already in the session keep their sets and rep range. A new exercise that replaces a dropped one
+   for the same muscle group (a swap) takes over that row's sets and rep range; any other new one takes the sets you did. */
 function learnSession(w) {
   if (w.planDay == null || !planDay(w.planDay)) return;
+  const key = n => n.toLowerCase(), groupOfName = n => (S.exercises.find(e => key(e.name) === key(n)) || { group: guessGroup(n) }).group;
   const old = planDay(w.planDay).items, seen = new Set(), items = [];
+  const doneNames = new Set(w.items.filter(it => it.sets.some(st => num(st.r) > 0)).map(it => key(exName(it.exId))));
+  const dropped = old.filter(x => !doneNames.has(key(x[0])));
   for (const it of w.items) {
     const name = exName(it.exId), n = it.sets.filter(st => num(st.r) > 0).length;
-    if (!n || seen.has(name.toLowerCase())) continue;
-    seen.add(name.toLowerCase());
-    const was = old.find(x => x[0].toLowerCase() === name.toLowerCase());
+    if (!n || seen.has(key(name))) continue;
+    seen.add(key(name));
+    const was = old.find(x => key(x[0]) === key(name));
+    if (was) { items.push(was.slice()); continue; }
+    const swap = dropped.findIndex(x => groupOfName(x[0]) === groupOfName(name));
+    if (swap >= 0) { const [, sets, lo, hi, rir] = dropped.splice(swap, 1)[0]; items.push([name, sets, lo, hi, rir, '']); continue; }
     const big = COMPOUND.test(name), [lo, hi] = REP_RANGE[goalKey()][big ? 0 : 1];
-    items.push(was ? was.slice() : [name, n, lo, hi, big ? '1-2' : '0-1', '']);
+    items.push([name, n, lo, hi, big ? '1-2' : '0-1', '']);
   }
   if (!items.length || items.map(x => x[0]).join('|') === old.map(x => x[0]).join('|')) return;
   editablePlanDay(w.planDay).items = items;

@@ -1,5 +1,5 @@
 /* Caches the app so it opens with no internet. Bump VERSION (and APP_VERSION in index.html) when the app files change. */
-const VERSION = 'liftlog-v32';
+const VERSION = 'liftlog-v33';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 /* cache: 'reload' skips the browser's own cache, so a new version never stores old files. */
