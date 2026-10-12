@@ -345,7 +345,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 29;
+const APP_VERSION = 30;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -421,7 +421,8 @@ const MUSCLE_RULES = [
   [/\by.?raise/, { upperBack: 1, sideDelts: 0.5, rearDelts: 0.25 }],
   [/shrug/, { upperBack: 1 }],
   [/upright row/, { sideDelts: 1, upperBack: 0.5 }],
-  [/pull.?up|chin.?up|pulldown|pull.?down|pullover|straight.?arm/, { lats: 1, biceps: 0.5, upperBack: 0.25 }],
+  [/pullover|straight.?arm/, { lats: 1, upperBack: 0.25 }],
+  [/pull.?up|chin.?up|pulldown|pull.?down/, { lats: 1, biceps: 0.5, upperBack: 0.25 }],
   [/row/, { upperBack: 1, lats: 0.5, rearDelts: 0.5, biceps: 0.5 }],
   [/curl/, { biceps: 1 }],
   [/close.?grip/, { triceps: 1, midChest: 0.5 }],
@@ -1073,7 +1074,8 @@ const needOf = (A, m) => A.ms[m].lo ? Math.max(0, A.ms[m].lo - A.ms[m].weekly) /
 /* How far a muscle's strength trend trails the rest of your body (0 when it keeps up). */
 function lagOf(A, m) {
   const t = A.ms[m].trend;
-  if (t == null || A.avgTrend == null) return 0;
+  /* Under 3 weeks, strength changes are mostly noise and learning the lifts: no lag claims yet. */
+  if (t == null || A.avgTrend == null || A.span < 21) return 0;
   const ref = Math.max(A.avgTrend, 1.5), gap = (ref - t) / Math.max(ref, 5);
   return gap >= 0.35 ? Math.min(0.6, gap) : 0;
 }
@@ -1742,8 +1744,9 @@ function goalProgressHTML(A) {
   const inRange = main.filter(m => A.ms[m].status === 'ok' || A.ms[m].status === 'high').length;
   const musclesRow = () => rows.push({ k: 'Muscles trained enough', ok: !A.enough ? 'q' : inRange / main.length >= 0.8 ? 'y' : inRange / main.length >= 0.6 ? 'p' : 'n',
     txt: `${inRange} of ${main.length}`, aim: '' });
-  const span = Math.max(7, Math.min(days, 28));
-  const perWeek = [...A.days].filter(d => d > A.tN - span).length / (span / 7);
+  /* Workouts a week over the finished days of the goal (today counts once you have trained). */
+  const span = Math.max(7, Math.min(days, 28)) + (A.trainedToday ? 1 : 0);
+  const perWeek = [...A.days].filter(d => d >= A.tN - span + (A.trainedToday ? 1 : 0) && d <= A.tN).length / (span / 7);
   if (gk === 'fat') {
     bwRow(); waistRow(); strengthRow(true);
     const mv = S.recovery.filter(r => num(r.move) != null && A.tN - dayNum(r.date) <= 7).map(r => num(r.move));
@@ -1769,7 +1772,7 @@ function goalProgressHTML(A) {
   const pts = scored.length ? scored.reduce((a, r) => a + (r.ok === 'y' ? 2 : r.ok === 'p' ? 1 : 0), 0) / (scored.length * 2) : 0;
   const v = days < 14 ? ['early', 'Too early'] : !scored.length ? ['early', 'No data yet']
     : pts >= 0.75 ? ['grow', 'On track'] : pts >= 0.45 ? ['some', 'Partly'] : ['low', 'Off track'];
-  return `<div class="card"><div class="row"><div class="grow"><div class="coach-k">Goal · day ${days}</div><h2 style="margin:2px 0 6px">${esc(g.label)}</h2></div><span class="verdict v-${v[0]}">${v[1]}</span></div>` +
+  return `<div class="card"><div class="row"><div class="grow"><div class="coach-k">Goal · day ${days + 1}</div><h2 style="margin:2px 0 6px">${esc(g.label)}</h2></div><span class="verdict v-${v[0]}">${v[1]}</span></div>` +
     rows.map(r => `<div class="kv"><span class="sig-i s-${r.ok}">${SIG_ICON[r.ok]}</span><span class="grow">${esc(r.k)}</span><b>${esc(r.txt)}</b><span class="muted small aim">${r.aim ? 'aim ' + esc(r.aim) : ''}</span></div>`).join('') + '</div>';
 }
 
@@ -1854,11 +1857,13 @@ function insightsHTML() {
   for (const w of S.workouts) if (w.items.some(it => it.sets.some(s => num(s.r) > 0))) (byWeek[weekStart(w.date)] = byWeek[weekStart(w.date)] || new Set()).add(w.date);
   for (const w of weeks) w.n = byWeek[w.date] ? byWeek[w.date].size : 0;
   const firstIdx = Math.max(0, weeks.findIndex(w => w.n > 0));
-  const avg = weeks.slice(firstIdx).reduce((a, w) => a + w.n, 0) / (weeks.length - firstIdx);
+  /* Average over finished weeks only, so a fresh Monday does not drag it down. */
+  const done = weeks.slice(firstIdx, -1), avgWeeks = done.length ? done : weeks.slice(firstIdx);
+  const avg = avgWeeks.reduce((a, w) => a + w.n, 0) / avgWeeks.length;
   h += `<div class="card"><h3>Consistency</h3><div class="kpis kpi2">
       <div><div class="v">${weeks[weeks.length - 1].n}</div><div class="k">This week</div></div>
       <div><div class="v">${avg.toFixed(1)}</div><div class="k">Avg / week</div></div>
-    </div>${weekBarsSVG(weeks)}</div>`;
+    </div>${weekBarsSVG(weeks.slice(Math.min(firstIdx, weeks.length - 4)))}</div>`;
   return h;
 }
 
