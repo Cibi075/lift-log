@@ -345,7 +345,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 30;
+const APP_VERSION = 31;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -745,7 +745,7 @@ function startHTML() {
       if (d === shown) continue;
       const day = planDay(d), names = day.items.map(i => i[0]), isToday = d === tdow;
       h += `<div class="card plan-card${isToday ? ' today' : ''}"><div class="row"><div class="grow"><b>${DAY_NAMES[d]} · ${esc(day.name)}</b>${isToday ? ' <span class="tag">today</span>' : ''}
-        <div class="muted small">${esc(day.focus)} · ${names.length} exercises</div></div>
+        <div class="muted small">${esc(day.focus)} · ${names.length} exercises${lastDone(d) ? ' · done ' + fmtShort(lastDone(d)) : ''}</div></div>
         <button class="btn small" data-act="editPlan" data-d="${d}">Edit</button><button class="btn small${isToday ? ' primary' : ''}" data-act="startPlan" data-d="${d}">Start</button></div>
         <div class="muted small cl one-line">${esc(names.join(', '))}</div></div>`;
     }
@@ -1241,6 +1241,27 @@ function planEditorHTML(d) {
   h += `<button class="btn block" data-act="peAdd">+ Add exercise</button>`;
   if (S.plan.days && Object.prototype.hasOwnProperty.call(S.plan.days, d)) h += `<button class="btn block danger mt" data-act="peReset">Reset to the original</button>`;
   return h;
+}
+/* A finished plan session becomes that session's list: next time it starts with the exercises you did, in your order.
+   Exercises that were already in the session keep their sets and rep range; new ones take the sets you did. */
+function learnSession(w) {
+  if (w.planDay == null || !planDay(w.planDay)) return;
+  const old = planDay(w.planDay).items, seen = new Set(), items = [];
+  for (const it of w.items) {
+    const name = exName(it.exId), n = it.sets.filter(st => num(st.r) > 0).length;
+    if (!n || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    const was = old.find(x => x[0].toLowerCase() === name.toLowerCase());
+    const big = COMPOUND.test(name), [lo, hi] = REP_RANGE[goalKey()][big ? 0 : 1];
+    items.push(was ? was.slice() : [name, n, lo, hi, big ? '1-2' : '0-1', '']);
+  }
+  if (!items.length || items.map(x => x[0]).join('|') === old.map(x => x[0]).join('|')) return;
+  editablePlanDay(w.planDay).items = items;
+}
+/* The date you last finished this plan session, or null. */
+function lastDone(d) {
+  const ws = S.workouts.filter(w => w.planDay === d && w.end).map(w => w.date).sort();
+  return ws.length ? ws[ws.length - 1] : null;
 }
 const DELOAD_EVERY = 7;
 
@@ -2005,8 +2026,9 @@ async function storageInfo() {
 
 function go(tab) { ui.tab = tab; ui.editId = null; ui.planEdit = null; saveUi(); closeSheet(); render(); scrollTo(0, 0); }
 
-function newWorkout(items) {
+function newWorkout(items, planD) {
   const w = { id: uid(), date: today(), start: Date.now(), end: null, note: '', items };
+  if (planD != null) w.planDay = planD;
   S.workouts.push(w); S.activeId = w.id; save();
   go('workout');
   return w;
@@ -2220,7 +2242,7 @@ $('#view').addEventListener('click', e => {
       if (!w.items.length) {
         if (!confirm('Nothing was logged. Discard this workout?')) { render(); break; }
         S.workouts = S.workouts.filter(x => x !== w);
-      } else w.end = Date.now();
+      } else { w.end = Date.now(); learnSession(w); }
       S.activeId = null; S.restEnd = null; save();
       render(); scrollTo(0, 0);
       if (!w.items.length) { toast('Workout discarded'); break; }
@@ -2259,13 +2281,13 @@ $('#view').addEventListener('click', e => {
     case 'import': $('#importFile').click(); break;
     case 'startPlan': {
       const items = planSession(Number(b.dataset.d), analyze());
-      save(); newWorkout(items); toast(planDay(Number(b.dataset.d)).name + ' loaded');
+      save(); newWorkout(items, Number(b.dataset.d)); toast(planDay(Number(b.dataset.d)).name + ' loaded');
       break;
     }
     case 'pickPlanDay':
       openSheet('<h2>Which session?</h2>' + [1, 2, 3, 4, 5, 6].map(d => `<button class="list-item" data-s="${d}"><b>${DAY_NAMES[d]} · ${esc(planDay(d).name)}</b><div class="muted small">${esc(planDay(d).focus)}</div></button>`).join(''), a => {
         const d = Number(a); closeSheet();
-        const items = planSession(d, analyze()); save(); newWorkout(items); toast(planDay(d).name + ' loaded');
+        const items = planSession(d, analyze()); save(); newWorkout(items, d); toast(planDay(d).name + ' loaded');
       });
       break;
     case 'editPlan': ui.planEdit = Number(b.dataset.d); render(); scrollTo(0, 0); break;
