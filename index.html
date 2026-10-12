@@ -346,7 +346,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 34;
+const APP_VERSION = 35;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -437,7 +437,7 @@ const MUSCLE_RULES = [
   [/fly|flye|crossover|pec deck/, { midChest: 1, upperChest: 0.25, lowerChest: 0.25 }],
   [/incline/, { upperChest: 1, midChest: 0.5, frontDelts: 0.5, triceps: 0.5 }],
   [/decline/, { lowerChest: 1, midChest: 0.5, triceps: 0.5 }],
-  [/bench|chest press|push.?up|floor press/, { midChest: 1, upperChest: 0.25, lowerChest: 0.25, frontDelts: 0.5, triceps: 0.5 }],
+  [/bench|chest press|push.?up|floor press|\bflat\b/, { midChest: 1, upperChest: 0.25, lowerChest: 0.25, frontDelts: 0.5, triceps: 0.5 }],
   [/overhead press|shoulder press|military|arnold|ohp|push press/, { frontDelts: 1, sideDelts: 0.5, triceps: 0.5 }]
 ];
 const GROUP_DEFAULT = {
@@ -497,11 +497,11 @@ function normalize(d) {
   s.settings = Object.assign({ unit: 'kg', rest: 90 }, d.settings);
   s.exercises = Array.isArray(d.exercises) ? d.exercises : [];
   for (const e of s.exercises) if (!GROUPS.includes(e.group)) e.group = guessGroup(e.name);
-  /* Versions 28 and 29 fixed these names, which older versions put in the wrong group: move them once. */
-  if (!(d.ruleFix >= 29)) {
-    for (const e of s.exercises) if (/jefferson|\by.?raise|(bent|bend).?(over|down).*(fly|flye|raise)|prone.*(fly|flye)/.test(e.name.toLowerCase())) e.group = guessGroup(e.name);
-    s.ruleFix = 29;
-  }
+  /* Names that older versions put in the wrong group move once to the right one: versions 28 and 29 fixed Jefferson curls,
+     Y raises and bent over flies, version 35 fixed flat presses (Flat Dumbbell Press is chest, not shoulders). */
+  const fixes = [[29, /jefferson|\by.?raise|(bent|bend).?(over|down).*(fly|flye|raise)|prone.*(fly|flye)/], [35, /\bflat\b/]];
+  for (const [v, re] of fixes) if (!(d.ruleFix >= v)) for (const e of s.exercises) if (re.test(e.name.toLowerCase())) e.group = guessGroup(e.name);
+  s.ruleFix = 35;
   s.workouts = Array.isArray(d.workouts) ? d.workouts : [];
   for (const w of s.workouts) {
     w.items = Array.isArray(w.items) ? w.items : [];
@@ -1270,6 +1270,25 @@ function learnSession(w) {
   }
   if (!items.length || items.map(x => x[0]).join('|') === old.map(x => x[0]).join('|')) return;
   editablePlanDay(w.planDay).items = items;
+}
+/* Workouts saved before version 31 do not say which plan session they were. Once, each finished one since the plan
+   started is matched to the session it shares the most exercises with (at least 3, and at least half the workout;
+   a tie goes to that weekday's session), and then updates that session as if it had just been finished. */
+function tagOldSessions() {
+  if (!S.plan || S.tagFix >= 35) return;
+  const olds = S.workouts.filter(w => w.planDay == null && w.end && w.id !== S.activeId && w.date >= S.plan.start)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  for (const w of olds) {
+    const names = new Set(w.items.filter(it => it.sets.some(st => num(st.r) > 0)).map(it => exName(it.exId).toLowerCase()));
+    let best = null, bestN = 0;
+    for (const d of [1, 2, 3, 4, 5, 6]) {
+      if (!planDay(d)) continue;
+      const n = planDay(d).items.filter(x => names.has(x[0].toLowerCase())).length;
+      if (n > bestN || (n === bestN && n && d === dateOf(w.date).getDay())) { best = d; bestN = n; }
+    }
+    if (best != null && bestN >= 3 && bestN >= names.size / 2) { w.planDay = best; learnSession(w); }
+  }
+  S.tagFix = 35; save();
 }
 /* The date you last finished this plan session, or null. */
 function lastDone(d) {
@@ -2123,7 +2142,7 @@ $('#importFile').addEventListener('change', async e => {
     const d = obj && obj.data ? obj.data : obj;
     if (!d || !Array.isArray(d.workouts) || !Array.isArray(d.exercises)) throw new Error('bad');
     if (!confirm(`Restore this backup with ${d.workouts.length} workouts? It replaces everything currently in the app.`)) return;
-    S = normalize(d); save(); toast('Backup restored'); go('history');
+    S = normalize(d); tagOldSessions(); save(); toast('Backup restored'); go('history');
   } catch (err) { alert('That file is not a Lift Log backup.'); }
 });
 
@@ -2489,6 +2508,7 @@ function syncHelp(why) {
 }
 
 if (!S.plan) { S.plan = { on: true, start: planStartDefault() }; save(); }
+tagOldSessions();
 render();
 importFromHash();
 addEventListener('hashchange', importFromHash);
