@@ -345,7 +345,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 27;
+const APP_VERSION = 28;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -412,11 +412,13 @@ const MUSCLE_RULES = [
   [/nordic|leg curl|hamstring curl|lying curl|seated leg curl/, { hamstrings: 1 }],
   [/romanian|rdl|stiff.?leg|good morning/, { hamstrings: 1, glutes: 0.5, lowerBack: 0.5 }],
   [/back extension|hyperextension/, { lowerBack: 1, glutes: 0.5, hamstrings: 0.5 }],
+  [/jefferson/, { lowerBack: 1, hamstrings: 0.5, glutes: 0.25 }],
   [/deadlift/, { lowerBack: 1, glutes: 0.5, hamstrings: 0.5, upperBack: 0.5, quads: 0.25 }],
   [/calf/, { calves: 1 }],
   [/leg extension|sissy/, { quads: 1 }],
   [/squat|leg press|lunge|split|step.?up|hack/, { quads: 1, glutes: 0.5 }],
-  [/face pull|rear delt|reverse fly|reverse pec/, { rearDelts: 1, upperBack: 0.5 }],
+  [/face pull|rear delt|reverse fly|reverse pec|cuban/, { rearDelts: 1, upperBack: 0.5 }],
+  [/\by.?raise/, { upperBack: 1, sideDelts: 0.5, rearDelts: 0.25 }],
   [/shrug/, { upperBack: 1 }],
   [/upright row/, { sideDelts: 1, upperBack: 0.5 }],
   [/pull.?up|chin.?up|pulldown|pull.?down|pullover|straight.?arm/, { lats: 1, biceps: 0.5, upperBack: 0.25 }],
@@ -427,6 +429,7 @@ const MUSCLE_RULES = [
   [/\bdips?\b/, { triceps: 1, lowerChest: 0.5, frontDelts: 0.5 }],
   [/lateral|side raise/, { sideDelts: 1 }],
   [/front raise/, { frontDelts: 1 }],
+  [/landmine press/, { frontDelts: 1, upperChest: 0.5, triceps: 0.5 }],
   [/incline.*(fly|flye)|low.?to.?high/, { upperChest: 1, midChest: 0.5 }],
   [/high.?to.?low|decline.*(fly|flye)/, { lowerChest: 1, midChest: 0.5 }],
   [/fly|flye|crossover|pec deck/, { midChest: 1, upperChest: 0.25, lowerChest: 0.25 }],
