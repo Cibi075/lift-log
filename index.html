@@ -292,6 +292,7 @@ details.fold[open] summary::after { content: '2'; }
 .ci-fold summary { text-decoration: underline; }
 .about { margin: 6px 0 4px; }
 
+.nowrap { white-space: nowrap; }
 .pe-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .pe-grid input, .pe-item .fl input { padding: 9px 8px; }
 .icon-btn[disabled] { opacity: .3; }
@@ -345,7 +346,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 31;
+const APP_VERSION = 32;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -745,7 +746,7 @@ function startHTML() {
       if (d === shown) continue;
       const day = planDay(d), names = day.items.map(i => i[0]), isToday = d === tdow;
       h += `<div class="card plan-card${isToday ? ' today' : ''}"><div class="row"><div class="grow"><b>${DAY_NAMES[d]} · ${esc(day.name)}</b>${isToday ? ' <span class="tag">today</span>' : ''}
-        <div class="muted small">${esc(day.focus)} · ${names.length} exercises${lastDone(d) ? ' · done ' + fmtShort(lastDone(d)) : ''}</div></div>
+        <div class="muted small">${esc(day.focus)} · ${lastDone(d) ? '<span class="nowrap">done ' + fmtShort(lastDone(d)) + '</span>' : names.length + ' exercises'}</div></div>
         <button class="btn small" data-act="editPlan" data-d="${d}">Edit</button><button class="btn small${isToday ? ' primary' : ''}" data-act="startPlan" data-d="${d}">Start</button></div>
         <div class="muted small cl one-line">${esc(names.join(', '))}</div></div>`;
     }
@@ -2487,7 +2488,13 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 <script>
 /* Sample data loader for testing on this PC or the home network only; never on the published site. */
 if (/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(location.hostname)) {
-  const d = document.createElement('script'); d.src = 'demo.js'; document.body.appendChild(d);
+  /* Fetched only when asked for (#demo or #demo2w), and always fresh, never a stale cached copy. */
+  const loadDemo = () => {
+    if (window.demoLoading || !/^#demo(2w)?$/.test(location.hash)) return;
+    window.demoLoading = true;
+    const d = document.createElement('script'); d.src = 'demo.js?' + Date.now(); document.body.appendChild(d);
+  };
+  loadDemo(); addEventListener('hashchange', loadDemo);
 }
 </script>
 </body>
