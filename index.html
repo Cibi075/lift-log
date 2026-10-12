@@ -101,6 +101,7 @@ input[type=date] { min-height: 44px; -webkit-appearance: none; }
 
 .ex h3 { flex: 1; }
 .ex .last { margin: 4px 0 2px; }
+.ex .aim { color: var(--accent); margin: 0 0 2px; text-align: left; min-width: 0; }
 .icon-btn { background: var(--card2); border: 0; border-radius: 10px; width: 40px; height: 36px; font-size: 20px; line-height: 1; color: var(--muted); }
 .set-head, .set-row { display: grid; grid-template-columns: 26px 1fr 1fr 46px 30px; gap: 8px; align-items: center; }
 .set-head { margin-top: 10px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; text-align: center; }
@@ -346,7 +347,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 35;
+const APP_VERSION = 36;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -604,11 +605,15 @@ const standalone = () => navigator.standalone === true || matchMedia('(display-m
 /* What you did last time for an exercise, before the given workout. */
 function previousSets(exId, cur) {
   const ws = S.workouts.filter(w => w.id !== cur.id && (w.date < cur.date || (w.date === cur.date && w.start < cur.start))).sort(byNewest);
-  for (const w of ws) {
-    const it = w.items.find(i => i.exId === exId);
-    if (it) { const sets = it.sets.filter(hasData); if (sets.length) return { w, sets }; }
-  }
-  return null;
+  const pick = list => {
+    for (const w of list) {
+      const it = w.items.find(i => i.exId === exId);
+      if (it) { const sets = it.sets.filter(hasData); if (sets.length) return { w, sets }; }
+    }
+    return null;
+  };
+  /* In a plan session, last time means last time in that same session (Incline Dumbbell Press differs on Push A and Push B). */
+  return (cur.planDay != null && pick(ws.filter(w => w.planDay === cur.planDay))) || pick(ws);
 }
 
 function exercisesByRecent() {
@@ -806,10 +811,12 @@ function itemHTML(w, it) {
   let h = `<div class="card ex" data-item="${it.id}">
     <div class="row"><h3>${esc(exName(it.exId))}</h3><button class="icon-btn" data-act="itemMenu" aria-label="Exercise options">&middot;&middot;&middot;</button></div>`;
   if (prev) h += `<div class="muted small last">Last time: ${prev.sets.map(fmtSet).join(', ')}</div>`;
+  if (prev && it.target && !w.end) h += `<div class="small aim">Aim: ${esc(targetText(it.target))}</div>`;
   h += `<div class="set-head"><span>#</span><span>${unit()}</span><span>Reps</span><span></span><span></span></div>`;
   it.sets.forEach((s, i) => {
     const lp = prev ? (prev.sets[i] || prev.sets[prev.sets.length - 1]) : null;
-    const p = it.target ? { w: it.target.w !== '' ? it.target.w : (lp ? lp.w : ''), r: it.target.r } : lp;
+    /* The grey numbers are what you did in that set last time (tap the check to repeat it); first time, the target. */
+    const p = lp || (it.target ? { w: it.target.w, r: it.target.r } : null);
     h += `<div class="set-row${s.done ? ' done' : ''}" data-set="${s.id}">
       <span class="n">${i + 1}</span>
       <input inputmode="decimal" data-f="w" value="${esc(s.w)}" placeholder="${p && num(p.w) != null ? esc(p.w) : ''}" aria-label="Weight">
@@ -1321,8 +1328,11 @@ function planSession(dow, A) {
   return day.items.map(([name, sets, lo, hi, rir, cue]) => {
     const e = ensureExercise(name);
     const rx = prescribe(e, A, R, { sets, lo, hi, deload });
+    /* As many sets as you did last time in this session (deload weeks still halve them), so each box can show that set. */
+    const prev = previousSets(e.id, { id: null, date: '9999-12-31', start: Infinity, planDay: dow });
+    const n = prev && !deload ? prev.sets.length : rx.sets;
     return { id: uid(), exId: e.id, target: { w: rx.w === '' ? '' : fmtNum(rx.w), r: String(rx.r), tags: rx.tags.concat(['RIR ' + (deload ? '3-4' : rir)]), cue },
-      sets: Array.from({ length: rx.sets }, () => ({ id: uid(), w: '', r: '', done: false })) };
+      sets: Array.from({ length: n }, () => ({ id: uid(), w: '', r: '', done: false })) };
   });
 }
 function coachPlan(A) {
@@ -1405,7 +1415,7 @@ function prescribe(e, A, R, o) {
   const ss = sessionsFor(e.id), last = ss[ss.length - 1];
   const big = COMPOUND.test(e.name);
   const [lo, hi] = o ? [o.lo, o.hi] : REP_RANGE[goalKey()][big ? 0 : 1];
-  const kg = unit() === 'kg', db = /dumbbell|\bdb\b/i.test(e.name);
+  const kg = unit() === 'kg', db = /dum+b+el+|\bdb\b/i.test(e.name);
   const inc = db ? (kg ? 2 : 5) : big ? (kg ? 2.5 : 5) : (kg ? 1 : 2.5);
   const pm = primaryOf(musclesFor(e.id)), st = pm && A.ms[pm] ? A.ms[pm].status : 'ok';
   const easy = R && R.level !== 'green';
@@ -1424,7 +1434,7 @@ function prescribe(e, A, R, o) {
   const topW = last.top, top = last.sets.filter(s => s.w === topW), minR = Math.min(...top.map(s => s.r));
   const setTag = base === sets ? [] : [sets > base ? '+1 set' : '1 set fewer'];
   if (!topW) return { sets, w: '', r: easy ? Math.min(minR, hi) : Math.min(minR + 1, hi), tags: [easy ? 'same as last' : '+1 rep'].concat(setTag) };
-  if (A.sinceLast >= 7) return { sets, w: roundTo(topW * 0.9, inc), r: Math.min(minR, hi), tags: ['10% lighter'] };
+  if (A.sinceLast >= 7) return { sets, w: roundTo(topW * 0.9, inc), r: Math.min(hi, Math.max(lo, minR)), tags: ['10% lighter'] };
   if (easy) return { sets, w: topW, r: Math.min(Math.max(minR, lo), hi), tags: ['same as last'].concat(setTag) };
   const prevMax = Math.max(...ss.slice(-6, -3).map(s => s.top));
   const recentDeload = ss.slice(-3).some(s => s.top < prevMax * 0.95);
@@ -1439,7 +1449,7 @@ function prescribe(e, A, R, o) {
   }
   if (minR >= hi) return { sets, w: topW + inc, r: lo, tags: [`+${fmtNum(inc)} ${unit()}`].concat(setTag) };
   if (minR < lo - 1) {
-    const w = Math.min(topW, weightFor(e, last, lo, inc));
+    const w0 = weightFor(e, last, lo, inc), w = topW - w0 < inc ? topW : Math.min(topW, w0);
     return { sets, w, r: lo, tags: [w < topW ? `−${fmtNum(topW - w)} ${unit()}` : 'same as last'].concat(setTag) };
   }
   return { sets, w: topW, r: Math.min(hi, minR + 1), tags: ['+1 rep'].concat(setTag) };
