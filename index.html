@@ -346,7 +346,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 33;
+const APP_VERSION = 34;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -1222,21 +1222,26 @@ function editablePlanDay(d) {
   if (!Object.prototype.hasOwnProperty.call(S.plan.days, d)) S.plan.days[d] = JSON.parse(JSON.stringify(PPL[d]));
   return S.plan.days[d];
 }
-const PE_FIELDS = { sets: 1, lo: 2, hi: 3, rir: 4, cue: 5 };
+const PE_FIELDS = { sets: 1, lo: 2, hi: 3, rir: 4 };
+/* Your most recent sets of an exercise, by name, from any workout. */
+function lastSetsOf(name) {
+  const e = S.exercises.find(x => x.name.toLowerCase() === name.toLowerCase());
+  return e ? previousSets(e.id, { id: null, date: '9999-12-31', start: Infinity }) : null;
+}
 function planEditorHTML(d) {
   const day = planDay(d);
   let h = `<div class="card"><div class="grid2"><label class="fl">Name<input data-pe="name" value="${esc(day.name)}"></label>
     <label class="fl">Focus<input data-pe="focus" value="${esc(day.focus)}"></label></div></div>`;
-  day.items.forEach(([name, sets, lo, hi, rir, cue], i) => {
-    h += `<div class="card pe-item" data-i="${i}"><div class="row"><b class="grow">${esc(name)}</b>
+  day.items.forEach(([name, sets, lo, hi, rir], i) => {
+    const last = lastSetsOf(name);
+    h += `<div class="card pe-item" data-i="${i}"><div class="row"><div class="grow"><b>${esc(name)}</b>${last ? `<div class="muted small">Last time: ${last.sets.map(fmtSet).join(', ')}</div>` : ''}</div>
       <button class="icon-btn" data-act="peUp" aria-label="Move up"${i ? '' : ' disabled'}>\u2191</button>
       <button class="icon-btn" data-act="peDown" aria-label="Move down"${i < day.items.length - 1 ? '' : ' disabled'}>\u2193</button>
       <button class="icon-btn" data-act="peDel" aria-label="Remove">\u00d7</button></div>
       <div class="pe-grid"><label class="fl">Sets<input data-pe="sets" inputmode="numeric" value="${sets}"></label>
       <label class="fl">Reps from<input data-pe="lo" inputmode="numeric" value="${lo}"></label>
       <label class="fl">to<input data-pe="hi" inputmode="numeric" value="${hi}"></label>
-      <label class="fl">RIR<input data-pe="rir" value="${esc(rir)}"></label></div>
-      <label class="fl">Cue<input data-pe="cue" value="${esc(cue)}" placeholder="optional"></label></div>`;
+      <label class="fl">RIR<input data-pe="rir" value="${esc(rir)}"></label></div></div>`;
   });
   if (!day.items.length) h += `<p class="muted center">No exercises in this session.</p>`;
   h += `<button class="btn block" data-act="peAdd">+ Add exercise</button>`;
@@ -2144,7 +2149,7 @@ $('#view').addEventListener('input', e => {
   const day = editablePlanDay(ui.planEdit), f = t.dataset.pe;
   if (f === 'name' || f === 'focus') { if (t.value.trim()) day[f] = t.value.trim(); save(); $('#title').textContent = 'Edit ' + day.name; return; }
   const item = day.items[Number(t.closest('[data-i]').dataset.i)];
-  if (f === 'rir' || f === 'cue') { item[PE_FIELDS[f]] = t.value.trim(); save(); return; }
+  if (f === 'rir') { item[PE_FIELDS[f]] = t.value.trim(); save(); return; }
   const n = parseInt(t.value, 10);
   if (n >= 1 && n <= 100) { item[PE_FIELDS[f]] = n; save(); }
 });
