@@ -345,7 +345,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 28;
+const APP_VERSION = 29;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -417,7 +417,7 @@ const MUSCLE_RULES = [
   [/calf/, { calves: 1 }],
   [/leg extension|sissy/, { quads: 1 }],
   [/squat|leg press|lunge|split|step.?up|hack/, { quads: 1, glutes: 0.5 }],
-  [/face pull|rear delt|reverse fly|reverse pec|cuban/, { rearDelts: 1, upperBack: 0.5 }],
+  [/face pull|rear delt|reverse fly|reverse pec|cuban|(bent|bend).?(over|down).*(fly|flye|raise)|prone.*(fly|flye)/, { rearDelts: 1, upperBack: 0.5 }],
   [/\by.?raise/, { upperBack: 1, sideDelts: 0.5, rearDelts: 0.25 }],
   [/shrug/, { upperBack: 1 }],
   [/upright row/, { sideDelts: 1, upperBack: 0.5 }],
@@ -460,6 +460,13 @@ function guessGroup(name) {
   if (/press|shoulder|lateral|raise|delt|face pull|arnold|military|upright/.test(n)) return 'Shoulders';
   return 'Other';
 }
+/* Checks a group you pick: when the name clearly says another group, the app asks before saving it. */
+function groupMismatch(name, g) {
+  const rule = ruleFor(name);
+  if (!rule) return '';
+  const m = primaryOf(rule), want = MUSCLES[m].group;
+  return want === g ? '' : `${name} usually trains ${MUSCLES[m].label.toLowerCase()} (${want}). Save it as ${g} anyway?`;
+}
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const $ = (s, el = document) => el.querySelector(s);
@@ -488,6 +495,11 @@ function normalize(d) {
   s.settings = Object.assign({ unit: 'kg', rest: 90 }, d.settings);
   s.exercises = Array.isArray(d.exercises) ? d.exercises : [];
   for (const e of s.exercises) if (!GROUPS.includes(e.group)) e.group = guessGroup(e.name);
+  /* Versions 28 and 29 fixed these names, which older versions put in the wrong group: move them once. */
+  if (!(d.ruleFix >= 29)) {
+    for (const e of s.exercises) if (/jefferson|\by.?raise|(bent|bend).?(over|down).*(fly|flye|raise)|prone.*(fly|flye)/.test(e.name.toLowerCase())) e.group = guessGroup(e.name);
+    s.ruleFix = 29;
+  }
   s.workouts = Array.isArray(d.workouts) ? d.workouts : [];
   for (const w of s.workouts) {
     w.items = Array.isArray(w.items) ? w.items : [];
@@ -675,6 +687,8 @@ function askGroup(name, cb) {
   openSheet(`<h2>Which muscle group is ${esc(name)}?</h2>
     <p class="muted">Used for the Insights tab. You can change it later in Settings.</p>` +
     order.map(g => `<button class="list-item${g === guess ? ' accent' : ''}" data-s="g" data-g="${g}">${g}${g === guess ? ' (suggested)' : ''}</button>`).join(''), (a, b) => {
+    const warn = groupMismatch(name, b.dataset.g);
+    if (warn && !confirm(warn)) return;
     const ex = { id: uid(), name, group: b.dataset.g };
     S.exercises.push(ex); save(); closeSheet(); cb(ex);
   });
@@ -2118,6 +2132,8 @@ $('#view').addEventListener('change', e => {
   else if (t.dataset.act === 'date') render();
   else if (t.dataset.act === 'exGroup') {
     const ex = S.exercises.find(x => x.id === t.closest('[data-ex]').dataset.ex);
+    const warn = ex && groupMismatch(ex.name, t.value);
+    if (warn && !confirm(warn)) { t.value = ex.group; return; }
     if (ex) { ex.group = t.value; save(); render(); toast(`${ex.name} moved to ${ex.group}`); }
   }
 });
