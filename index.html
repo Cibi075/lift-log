@@ -349,7 +349,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 38;
+const APP_VERSION = 39;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -1958,10 +1958,13 @@ function workoutTimingHTML(w) {
   for (let i = 1; i < all.length; i += 1) total += restBetween(all[i - 1], all[i]) || 0;
   const between = Math.max(0, total - within);
   return `<div class="card"><div class="row"><h3 class="grow">Timing</h3><b>${fmtDur(last - first)}</b></div>
-    ${total >= 30 ? `<div class="muted small">Rest ${fmtDur(total * 1000)} in total${between >= 30 ? `: ${fmtDur(within * 1000)} between sets, ${fmtDur(between * 1000)} between exercises` : ''}</div>` : ''}` +
-    rows.map(r => `<div class="ex-row tm-row"><div class="row"><span class="grow">${esc(r.name)}</span><span class="muted small">${r.span > 0 ? 'took ' + fmtClock(r.span) : ''}</span>
-      <span class="st-s small">${r.n ? 'rest ' + fmtClock(r.sum) : ''}</span></div>
-      ${r.rests.length ? `<div class="muted small">${r.rests.map((x, i) => `set ${i + 2} after ${x == null ? 'a long break' : fmtClock(x)}`).join(' · ')}${r.n > 1 ? ` · avg ${fmtClock(r.sum / r.n)}` : ''}</div>` : ''}</div>`).join('') + '</div>';
+    ${total >= 30 ? `<div class="muted small">Rested ${fmtDur(total * 1000)}${between >= 30 ? `: ${fmtDur(within * 1000)} between sets, ${fmtDur(between * 1000)} between exercises` : ''}</div>` : ''}` +
+    rows.map(r => {
+      const sums = [r.span > 0 ? 'Took ' + fmtClock(r.span) : '', r.n ? 'rested ' + fmtClock(r.sum) : '', r.n > 1 ? 'avg ' + fmtClock(r.sum / r.n) + ' per rest' : ''].filter(Boolean);
+      return `<div class="ex-row tm-row"><div>${esc(r.name)}</div>
+        ${sums.length ? `<div class="muted small">${sums.join(' · ')}</div>` : ''}
+        ${r.rests.length ? `<div class="muted small">Rest before ${r.rests.map((x, i) => `set ${i + 2}: ${x == null ? 'long break' : fmtClock(x)}`).join(' · ')}</div>` : ''}</div>`;
+    }).join('') + '</div>';
 }
 
 function openBodySheet() {
