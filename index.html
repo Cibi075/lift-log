@@ -349,7 +349,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 39;
+const APP_VERSION = 40;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -1665,11 +1665,12 @@ function timingStats() {
         (COMPOUND.test(exName(it.exId)) ? comp : iso).push(rest);
         (perEx[it.exId] = perEx[it.exId] || []).push(rest);
       }
-      if (ts.length) blocks.push({ first: ts[0].t, last: ts[ts.length - 1].t });
+      if (ts.length) blocks.push({ first: ts[0].t, last: ts[ts.length - 1].t, firstReps: num(ts[0].r) || 8 });
     }
     blocks.sort((a, b) => a.first - b.first);
     for (let i = 1; i < blocks.length; i += 1) {
-      const g = (blocks[i].first - blocks[i - 1].last) / 1000;
+      /* Like rest between sets: the gap minus about 3 s a rep for doing the first set of the next exercise. */
+      const g = (blocks[i].first - blocks[i - 1].last) / 1000 - blocks[i].firstReps * 3;
       if (g > 0 && g < 1200) trans.push(g);
     }
     if (blocks.length) {
