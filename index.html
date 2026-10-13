@@ -349,7 +349,7 @@ details.fold[open] summary::after { content: '2'; }
 
 /* Storage: everything lives in this phone's localStorage and is written on every change. */
 /* Shown in Settings; keep equal to the number in sw.js VERSION so you can see which version the phone runs. */
-const APP_VERSION = 40;
+const APP_VERSION = 41;
 const KEY = 'liftlog.v1';
 const UI_KEY = 'liftlog.ui';
 const DEFAULT_EXERCISES = [
@@ -1939,7 +1939,15 @@ const regionOf = m => (REGIONS.find(r => r[1].includes(m)) || ['Other'])[0];
    Gaps over 15 minutes (app left open) are not rest. */
 const restBetween = (a, b) => { const g = (b.t - a.t) / 1000; return g <= 900 ? Math.max(0, g - (num(b.r) || 8) * 3) : null; };
 
-/* Timing summary for one finished workout: total rest, then each exercise with the rest before every set. */
+/* Where the workout time went, in whole minutes that add up to the workout length: doing the sets, resting between sets,
+   and changing exercises (walking over, setting up, loading). */
+function splitHTML(span, within, between) {
+  const all = Math.round(span / 60), rest = Math.min(all, Math.round(within / 60)), move = Math.min(all - rest, Math.round(between / 60));
+  const box = (v, k) => `<div><div class="v">${v} min</div><div class="k">${k}</div></div>`;
+  return `<div class="kpis">${box(all - rest - move, 'Lifting')}${box(rest, 'Rest between sets')}${box(move, 'Changing exercises')}</div>`;
+}
+
+/* Timing summary for one finished workout: where the time went, then each exercise with the rest before every set. */
 function workoutTimingHTML(w) {
   const rows = [];
   let first = Infinity, last = 0, within = 0;
@@ -1959,13 +1967,10 @@ function workoutTimingHTML(w) {
   for (let i = 1; i < all.length; i += 1) total += restBetween(all[i - 1], all[i]) || 0;
   const between = Math.max(0, total - within);
   return `<div class="card"><div class="row"><h3 class="grow">Timing</h3><b>${fmtDur(last - first)}</b></div>
-    ${total >= 30 ? `<div class="muted small">Rested ${fmtDur(total * 1000)}${between >= 30 ? `: ${fmtDur(within * 1000)} between sets, ${fmtDur(between * 1000)} between exercises` : ''}</div>` : ''}` +
-    rows.map(r => {
-      const sums = [r.span > 0 ? 'Took ' + fmtClock(r.span) : '', r.n ? 'rested ' + fmtClock(r.sum) : '', r.n > 1 ? 'avg ' + fmtClock(r.sum / r.n) + ' per rest' : ''].filter(Boolean);
-      return `<div class="ex-row tm-row"><div>${esc(r.name)}</div>
-        ${sums.length ? `<div class="muted small">${sums.join(' · ')}</div>` : ''}
-        ${r.rests.length ? `<div class="muted small">Rest before ${r.rests.map((x, i) => `set ${i + 2}: ${x == null ? 'long break' : fmtClock(x)}`).join(' · ')}</div>` : ''}</div>`;
-    }).join('') + '</div>';
+    ${total >= 30 ? splitHTML((last - first) / 1000, within, between) : ''}` +
+    (rows.some(r => r.rests.length) ? '<div class="muted small mt">Rest before each set</div>' : '') +
+    rows.filter(r => r.rests.length).map(r => `<div class="ex-row"><span class="grow">${esc(r.name)}</span>
+      <span class="muted small">${r.rests.map(x => x == null ? 'long' : fmtClock(x)).join(' · ')}</span></div>`).join('') + '</div>';
 }
 
 function openBodySheet() {
